@@ -1,0 +1,19 @@
+{
+  "name": "@mafia/game-engine",
+  "version": "1.0.0",
+  "description": "Pure game logic engine for Project Mafia — no UI, no networking",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@mafia/shared": "*"
+  },
+  "devDependencies": {
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.3"
+  }
+}

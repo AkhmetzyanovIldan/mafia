@@ -1,0 +1,17 @@
+{
+  "name": "mafia-project",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "game-engine",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "build": "npm run build -w shared && npm run build -w game-engine && npm run build -w backend && npm run build -w frontend",
+    "dev:backend": "npm run dev -w backend",
+    "dev:frontend": "npm run dev -w frontend",
+    "clean": "npm run clean -w shared && npm run clean -w game-engine && npm run clean -w backend && npm run clean -w frontend"
+  }
+}

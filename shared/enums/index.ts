@@ -1,0 +1,63 @@
+export enum GamePhase {
+  WAITING = 'WAITING',
+  PREPARING = 'PREPARING',
+  NIGHT = 'NIGHT',
+  MORNING = 'MORNING',
+  DAY_SPEECH = 'DAY_SPEECH',
+  DAY_DISCUSSION = 'DAY_DISCUSSION',
+  VOTING = 'VOTING',
+  LAST_WORD = 'LAST_WORD',
+  CHECK_VICTORY = 'CHECK_VICTORY',
+  GAME_OVER = 'GAME_OVER',
+}
+
+export enum RoleName {
+  CIVILIAN = 'CIVILIAN',
+  MAFIA = 'MAFIA',
+  DETECTIVE = 'DETECTIVE',
+  DOCTOR = 'DOCTOR',
+  DON = 'DON',
+  COMMISSIONER = 'COMMISSIONER',
+  LOVER = 'LOVER',
+  ADVOCATE = 'ADVOCATE',
+  JOURNALIST = 'JOURNALIST',
+  SERGEANT = 'SERGEANT',
+}
+
+export enum RoleTeam {
+  TOWN = 'TOWN',
+  MAFIA = 'MAFIA',
+}
+
+export enum PlayerStatus {
+  ALIVE = 'ALIVE',
+  DEAD = 'DEAD',
+  DISCONNECTED = 'DISCONNECTED',
+}
+
+export enum RoomStatus {
+  WAITING = 'WAITING',
+  IN_PROGRESS = 'IN_PROGRESS',
+  FINISHED = 'FINISHED',
+}
+
+export enum ActionType {
+  KILL = 'KILL',
+  INVESTIGATE = 'INVESTIGATE',
+  HEAL = 'HEAL',
+  BLOCK = 'BLOCK',
+  SHOOT = 'SHOOT',
+  VOTE = 'VOTE',
+}
+
+export enum WinCondition {
+  TOWN_WINS = 'TOWN_WINS',
+  MAFIA_WINS = 'MAFIA_WINS',
+  DRAW = 'DRAW',
+}
+
+export enum GameSessionStatus {
+  WAITING = 'WAITING',
+  IN_PROGRESS = 'IN_PROGRESS',
+  FINISHED = 'FINISHED',
+}
