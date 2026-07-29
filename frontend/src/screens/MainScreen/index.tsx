@@ -1,14 +1,20 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useRoomStore } from '../../store/roomStore';
+import { useAuthStore } from '../../store/authStore';
 import type { RoomStateDto, GameStateDto } from '@mafia/shared';
 import { GameSessionStatus, GamePhase } from '@mafia/shared';
 
 type View = 'home' | 'create' | 'join';
 
 export function MainScreen() {
+  const { token, loginAsGuest } = useAuthStore();
   const { room, playerId, gameState, error, loading, createRoom, joinRoom, leaveRoom, startGame, clearError } =
-    useRoomStore();
+    useRoomStore(token);
+
+  if (!token) {
+    return <GuestLoginView onLogin={loginAsGuest} />;
+  }
 
   if (gameState) {
     return <GameView gameState={gameState} onLeave={leaveRoom} />;
@@ -38,6 +44,49 @@ export function MainScreen() {
       )}
       <HomeView loading={loading} onCreateRoom={createRoom} onJoinRoom={joinRoom} />
     </div>
+  );
+}
+
+// Guest login
+
+interface GuestLoginViewProps {
+  onLogin: (username: string) => Promise<void>;
+}
+
+function GuestLoginView({ onLogin }: GuestLoginViewProps) {
+  const [username, setUsername] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!username.trim()) return;
+    setLoading(true);
+    try {
+      await onLogin(username.trim());
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form className="form" onSubmit={handleSubmit}>
+      <h2>Enter your name</h2>
+      <label>
+        Username
+        <input
+          type="text"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          placeholder="Enter your name"
+          maxLength={32}
+          required
+          autoFocus
+        />
+      </label>
+      <button type="submit" className="btn btn-primary" disabled={loading || !username.trim()}>
+        {loading ? 'Loading…' : 'Continue'}
+      </button>
+    </form>
   );
 }
 
@@ -81,7 +130,8 @@ interface CreateRoomFormProps {
 }
 
 function CreateRoomForm({ loading, onSubmit, onBack }: CreateRoomFormProps) {
-  const [username, setUsername] = useState('');
+  const { username: savedUsername } = useAuthStore();
+  const [username, setUsername] = useState(savedUsername ?? '');
   const [maxPlayers, setMaxPlayers] = useState(8);
 
   const handleSubmit = (e: FormEvent) => {
@@ -99,7 +149,7 @@ function CreateRoomForm({ loading, onSubmit, onBack }: CreateRoomFormProps) {
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           placeholder="Enter your name"
-          maxLength={20}
+          maxLength={32}
           required
           autoFocus
         />
@@ -133,8 +183,9 @@ interface JoinRoomFormProps {
 }
 
 function JoinRoomForm({ loading, onSubmit, onBack }: JoinRoomFormProps) {
+  const { username: savedUsername } = useAuthStore();
   const [code, setCode] = useState('');
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState(savedUsername ?? '');
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -163,7 +214,7 @@ function JoinRoomForm({ loading, onSubmit, onBack }: JoinRoomFormProps) {
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           placeholder="Enter your name"
-          maxLength={20}
+          maxLength={32}
           required
         />
       </label>

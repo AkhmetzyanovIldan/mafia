@@ -12,7 +12,7 @@ export class RoomController {
       const { room, playerId } = this.roomService.createRoom(username, maxPlayers);
       res.status(201).json(ok({ room, playerId }));
     } catch (err) {
-      res.status(400).json(fail((err as Error).message));
+      res.status(400).json(fail(err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -22,18 +22,22 @@ export class RoomController {
       const { room, playerId } = this.roomService.joinRoom(code, username);
       res.json(ok({ room, playerId }));
     } catch (err) {
-      res.status(400).json(fail((err as Error).message));
+      res.status(400).json(fail(err instanceof Error ? err.message : String(err)));
     }
   };
 
   leave = (req: AuthenticatedRequest, res: Response): void => {
+    const playerId = req.playerId;
+    if (!playerId) {
+      res.status(401).json(fail('Unauthorized'));
+      return;
+    }
     try {
       const { roomId } = req.params;
-      const { playerId } = req.body as { playerId: string };
       const { dto, removed } = this.roomService.leaveRoom(roomId, playerId);
       res.json(ok({ room: dto, removed }));
     } catch (err) {
-      res.status(400).json(fail((err as Error).message));
+      res.status(400).json(fail(err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -43,7 +47,7 @@ export class RoomController {
       const room = this.roomService.getRoom(roomId);
       res.json(ok(room));
     } catch (err) {
-      res.status(404).json(fail((err as Error).message));
+      res.status(404).json(fail(err instanceof Error ? err.message : String(err)));
     }
   };
 

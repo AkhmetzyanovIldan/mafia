@@ -4,13 +4,13 @@ import { createApp } from './app';
 import { config } from './config';
 import { ConnectionManager, MessageHandler } from './websocket';
 
-const { app, roomService, gameSessionManager } = createApp();
+const { app, authService, roomService, gameSessionManager } = createApp();
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ server, maxPayload: 4096 });
 
 const connections = new ConnectionManager();
-const messageHandler = new MessageHandler(connections, roomService, gameSessionManager);
+const messageHandler = new MessageHandler(connections, roomService, gameSessionManager, authService);
 
 wss.on('connection', (socket: WebSocket) => {
   console.log('[WS] New connection established');

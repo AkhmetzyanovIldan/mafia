@@ -47,12 +47,12 @@ export class WebSocketService {
     }
   }
 
-  on<K extends RoomServerToClientEvent>(event: string, handler: EventHandler<K>): void {
+  on<K extends RoomServerToClientEvent>(event: K['event'], handler: EventHandler<K>): void {
     const existing = this.handlers.get(event) ?? [];
     this.handlers.set(event, [...existing, handler as AnyHandler]);
   }
 
-  off<K extends RoomServerToClientEvent>(event: string, handler: EventHandler<K>): void {
+  off<K extends RoomServerToClientEvent>(event: K['event'], handler: EventHandler<K>): void {
     const existing = this.handlers.get(event) ?? [];
     this.handlers.set(event, existing.filter((h) => h !== (handler as AnyHandler)));
   }

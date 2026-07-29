@@ -39,6 +39,7 @@ export interface IRoomSettings {
   phaseDurationMs: number;
   votingDurationMs: number;
   nightDurationMs: number;
+  roleNames?: RoleName[];
 }
 
 export interface IGameState {
@@ -81,22 +82,25 @@ export interface RoomStateDto {
   createdAt: string;
 }
 
-// Game Session module DTOs
+// Game Session player shape — used by both IGameSession and GameStateDto
 
-export interface GameSessionPlayerDto {
+export interface GamePlayerDto {
   id: string;
   username: string;
   isHost: boolean;
   status: PlayerStatus;
   blockedFromVoting?: boolean;
+  role?: IRole;
 }
+
+// Game Session module
 
 export interface IGameSession {
   gameId: string;
   roomId: string;
   status: GameSessionStatus;
   currentPhase: GamePhase;
-  players: GameSessionPlayerDto[];
+  players: GamePlayerDto[];
   createdAt: string;
   startedAt: string;
 }

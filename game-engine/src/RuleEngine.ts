@@ -2,22 +2,21 @@ import { ActionType, PlayerStatus, RoleName, RoleTeam, WinCondition } from '@maf
 import type { IPlayerAction } from '@mafia/shared';
 import type { Player } from './Player';
 import type { NightActionCollection } from './NightActionCollection';
+import type { VoteCollection } from './VoteCollection';
 
 export interface NightResolution {
-  /** Players killed this night (after heal cancellation). */
   killed: string[];
-  /** Players saved by the doctor. */
   healed: string[];
-  /** Investigation results: investigatorId → target's team. */
   investigations: Map<string, RoleTeam>;
-  /** Don checks whether a target is Commissioner or Sergeant. */
   donChecks: Map<string, boolean>;
-  /** Advocate checks return the target role name. */
   advocateChecks: Map<string, RoleName | null>;
-  /** Journalist checks return whether the two players are on the same team. */
   journalistChecks: Map<string, boolean>;
-  /** Players blocked by Lover this night. */
   blockedPlayers: string[];
+}
+
+export interface VotingResolution {
+  eliminated: string | null;
+  tally: Map<string, number>;
 }
 
 export interface WinCheckResult {
@@ -27,103 +26,100 @@ export interface WinCheckResult {
 
 export class RuleEngine {
   /**
-   * Resolves all night actions simultaneously in a single pass.
-   *
-   * Pipeline:
-   *   1. Validate each submitted action.
-   *   2. Collect blocked actors and mark vote restrictions.
-   *   3. Process informational actions.
-   *   4. Resolve mafia/don kill randomly.
-   *   5. Resolve sergeant shots.
-   *   6. Apply heals.
-   *   7. Update deaths and clear the collection.
+   * Validates a single night action against live player state.
+   * Returns null if valid, or an error string if invalid.
+   * Invalid actions are silently skipped — the night never throws.
    */
+  private validateNightAction(
+    action: IPlayerAction,
+    playerMap: Map<string, Player>,
+    nightNumber: number,
+    blockedActors: Set<string>,
+  ): string | null {
+    const actor = playerMap.get(action.playerId);
+    if (!actor) return `Unknown actor ${action.playerId}`;
+    if (actor.status !== PlayerStatus.ALIVE) return `Actor ${action.playerId} is not alive`;
+    if (!actor.role?.canActAtNight) return `Actor ${action.playerId} has no night action`;
+    if (blockedActors.has(action.playerId)) return `Actor ${action.playerId} is blocked`;
+
+    const target = playerMap.get(action.targetId);
+    if (!target) return `Unknown target ${action.targetId}`;
+    if (target.status !== PlayerStatus.ALIVE) return `Target ${action.targetId} is not alive`;
+
+    switch (action.type) {
+      case ActionType.KILL:
+        if (actor.role.name !== RoleName.MAFIA && actor.role.name !== RoleName.DON)
+          return `Actor ${action.playerId} cannot KILL`;
+        if (action.playerId === action.targetId)
+          return `Actor ${action.playerId} cannot kill themselves`;
+        break;
+
+      case ActionType.SHOOT:
+        if (actor.role.name !== RoleName.SERGEANT)
+          return `Actor ${action.playerId} cannot SHOOT`;
+        if (actor.hasShot)
+          return `Actor ${action.playerId} has already used their shot`;
+        if (nightNumber === 0)
+          return `Sergeant cannot act on the first night`;
+        if (action.playerId === action.targetId)
+          return `Actor ${action.playerId} cannot shoot themselves`;
+        break;
+
+      case ActionType.HEAL:
+        if (actor.role.name !== RoleName.DOCTOR)
+          return `Actor ${action.playerId} cannot HEAL`;
+        break;
+
+      case ActionType.BLOCK:
+        if (actor.role.name !== RoleName.LOVER)
+          return `Actor ${action.playerId} cannot BLOCK`;
+        break;
+
+      case ActionType.INVESTIGATE:
+        if (
+          actor.role.name !== RoleName.DETECTIVE &&
+          actor.role.name !== RoleName.COMMISSIONER &&
+          actor.role.name !== RoleName.DON &&
+          actor.role.name !== RoleName.ADVOCATE &&
+          actor.role.name !== RoleName.JOURNALIST
+        ) return `Actor ${action.playerId} cannot INVESTIGATE`;
+        if (actor.role.name === RoleName.ADVOCATE && nightNumber === 0)
+          return `Advocate cannot act on the first night`;
+        if (actor.role.name === RoleName.JOURNALIST) {
+          if (!action.secondaryTargetId)
+            return `Journalist requires two targets`;
+          const secondary = playerMap.get(action.secondaryTargetId);
+          if (!secondary) return `Unknown secondary target ${action.secondaryTargetId}`;
+          if (secondary.status !== PlayerStatus.ALIVE)
+            return `Secondary target ${action.secondaryTargetId} is not alive`;
+        }
+        break;
+
+      default:
+        return `Action type ${action.type} is not valid at night`;
+    }
+
+    return null;
+  }
+
   resolveNight(collection: NightActionCollection, players: Player[], nightNumber: number): NightResolution {
     const actions = collection.getAll();
-    const playerMap = new Map(players.map((player) => [player.id, player]));
+    const playerMap = new Map(players.map((p) => [p.id, p]));
 
-    const validationErrors: string[] = [];
-    const blockedTargets = new Set<string>();
-
-    for (const action of actions) {
-      const actor = playerMap.get(action.playerId);
-      if (!actor) {
-        validationErrors.push(`Unknown actor ${action.playerId}`);
-        continue;
-      }
-      if (actor.status !== PlayerStatus.ALIVE) {
-        validationErrors.push(`Player ${action.playerId} is not alive and cannot act at night`);
-      }
-      if (!actor.role?.canActAtNight) {
-        validationErrors.push(`Player ${action.playerId} is not permitted to act at night`);
-      }
-      if (actor.role?.name === RoleName.SERGEANT && nightNumber === 0) {
-        validationErrors.push(`Sergeant cannot act on the first night`);
-      }
-      if (actor.role?.name === RoleName.ADVOCATE && nightNumber === 0) {
-        validationErrors.push(`Advocate cannot act on the first night`);
-      }
-      if (action.type === ActionType.KILL) {
-        if (actor.role?.name !== RoleName.MAFIA && actor.role?.name !== RoleName.DON) {
-          validationErrors.push(`Player ${action.playerId} is not permitted to kill at night`);
-        }
-      }
-      if (action.type === ActionType.HEAL) {
-        if (actor.role?.name !== RoleName.DOCTOR) {
-          validationErrors.push(`Player ${action.playerId} is not permitted to heal at night`);
-        }
-      }
-      if (action.type === ActionType.SHOOT) {
-        if (actor.role?.name !== RoleName.SERGEANT) {
-          validationErrors.push(`Player ${action.playerId} is not permitted to shoot at night`);
-        }
-        if (actor.hasShot) {
-          validationErrors.push(`Player ${action.playerId} has already used their shot`);
-        }
-      }
-      if (action.type === ActionType.BLOCK) {
-        if (actor.role?.name !== RoleName.LOVER) {
-          validationErrors.push(`Player ${action.playerId} is not permitted to block at night`);
-        }
-      }
-      if (action.type === ActionType.INVESTIGATE) {
-        if (
-          actor.role?.name !== RoleName.DETECTIVE &&
-          actor.role?.name !== RoleName.COMMISSIONER &&
-          actor.role?.name !== RoleName.DON &&
-          actor.role?.name !== RoleName.ADVOCATE &&
-          actor.role?.name !== RoleName.JOURNALIST
-        ) {
-          validationErrors.push(`Player ${action.playerId} is not permitted to investigate at night`);
-        }
-        if (actor.role?.name === RoleName.JOURNALIST && !action.secondaryTargetId) {
-          validationErrors.push(`Journalist action requires two targets`);
-        }
-      }
-      const target = playerMap.get(action.targetId);
-      if (!target) {
-        validationErrors.push(`Invalid night action target ${action.targetId}`);
-      }
-      if (action.type === ActionType.INVESTIGATE && !action.targetId) {
-        validationErrors.push(`Investigate action requires a targetId`);
-      }
-      if (action.type === ActionType.INVESTIGATE && action.secondaryTargetId) {
-        const otherTarget = playerMap.get(action.secondaryTargetId);
-        if (!otherTarget) {
-          validationErrors.push(`Invalid second target ${action.secondaryTargetId}`);
-        }
-      }
-    }
-
-    if (validationErrors.length > 0) {
-      throw new Error(`Night action validation failed: ${validationErrors.join('; ')}`);
-    }
-
+    // First pass: collect BLOCK actions to know who is blocked before validating others
+    const blockedActors = new Set<string>();
     for (const action of actions) {
       if (action.type === ActionType.BLOCK) {
-        blockedTargets.add(action.targetId);
+        const actor = playerMap.get(action.playerId);
         const target = playerMap.get(action.targetId);
-        if (target) {
+        if (
+          actor &&
+          actor.status === PlayerStatus.ALIVE &&
+          actor.role?.name === RoleName.LOVER &&
+          target &&
+          target.status === PlayerStatus.ALIVE
+        ) {
+          blockedActors.add(action.targetId);
           target.blockedFromVoting = true;
         }
       }
@@ -138,17 +134,18 @@ export class RuleEngine {
     const sergeantShotTargets = new Set<string>();
 
     for (const action of actions) {
-      if (blockedTargets.has(action.playerId)) {
+      const error = this.validateNightAction(action, playerMap, nightNumber, blockedActors);
+      if (error) {
+        console.warn(`[RuleEngine] Skipping invalid night action: ${error}`);
         continue;
       }
-      const actor = playerMap.get(action.playerId);
-      if (!actor) continue;
+
+      const actor = playerMap.get(action.playerId)!;
 
       switch (action.type) {
         case ActionType.INVESTIGATE: {
-          const target = playerMap.get(action.targetId);
-          if (!target) break;
-          switch (actor.role?.name) {
+          const target = playerMap.get(action.targetId)!;
+          switch (actor.role!.name) {
             case RoleName.DETECTIVE:
             case RoleName.COMMISSIONER:
               if (target.role) investigations.set(action.playerId, target.role.team);
@@ -163,8 +160,8 @@ export class RuleEngine {
               advocateChecks.set(action.playerId, target.role?.name ?? null);
               break;
             case RoleName.JOURNALIST: {
-              const secondary = action.secondaryTargetId ? playerMap.get(action.secondaryTargetId) : null;
-              if (secondary && target.role && secondary.role) {
+              const secondary = playerMap.get(action.secondaryTargetId!)!;
+              if (target.role && secondary.role) {
                 journalistChecks.set(action.playerId, target.role.team === secondary.role.team);
               }
               break;
@@ -176,16 +173,13 @@ export class RuleEngine {
           healTargets.add(action.targetId);
           break;
         case ActionType.KILL:
-          if (actor.role?.name === RoleName.MAFIA || actor.role?.name === RoleName.DON) {
-            mafiaKillTargets.add(action.targetId);
-          }
+          mafiaKillTargets.add(action.targetId);
           break;
         case ActionType.SHOOT:
-          if (actor.role?.name === RoleName.SERGEANT) {
-            sergeantShotTargets.add(action.targetId);
-            actor.hasShot = true;
-          }
+          sergeantShotTargets.add(action.targetId);
+          actor.hasShot = true;
           break;
+        // BLOCK already handled in first pass
       }
     }
 
@@ -194,11 +188,10 @@ export class RuleEngine {
 
     if (mafiaKillTargets.size > 0) {
       const targets = [...mafiaKillTargets];
-      const randomIndex = Math.floor(Math.random() * targets.length);
-      const targetId = targets[randomIndex];
+      const targetId = targets[Math.floor(Math.random() * targets.length)];
       if (!protectedTargets.has(targetId)) {
         const target = playerMap.get(targetId);
-        if (target) {
+        if (target && target.status === PlayerStatus.ALIVE) {
           target.status = PlayerStatus.DEAD;
           killed.push(targetId);
         }
@@ -210,14 +203,12 @@ export class RuleEngine {
         const target = playerMap.get(targetId);
         if (target && target.status === PlayerStatus.ALIVE) {
           target.status = PlayerStatus.DEAD;
-          if (!killed.includes(targetId)) {
-            killed.push(targetId);
-          }
+          if (!killed.includes(targetId)) killed.push(targetId);
         }
       }
     }
 
-    const healed = [...healTargets].filter((targetId) => killed.includes(targetId));
+    const healed = [...healTargets].filter((id) => mafiaKillTargets.has(id) || sergeantShotTargets.has(id));
 
     collection.clear();
 
@@ -228,14 +219,37 @@ export class RuleEngine {
       donChecks,
       advocateChecks,
       journalistChecks,
-      blockedPlayers: [...blockedTargets],
+      blockedPlayers: [...blockedActors],
     };
   }
 
-  /**
-   * Evaluates win conditions against the current player list.
-   * Called after night resolution and after voting resolution.
-   */
+  resolveVoting(collection: VoteCollection, players: Player[]): VotingResolution {
+    const tally = new Map<string, number>();
+
+    for (const targetId of collection.getAll().values()) {
+      tally.set(targetId, (tally.get(targetId) ?? 0) + 1);
+    }
+
+    let eliminated: string | null = null;
+
+    if (tally.size > 0) {
+      const maxVotes = Math.max(...tally.values());
+      const leaders = [...tally.entries()].filter(([, v]) => v === maxVotes);
+
+      if (leaders.length === 1) {
+        const [targetId] = leaders[0];
+        const target = players.find((p) => p.id === targetId);
+        if (target && target.status === PlayerStatus.ALIVE) {
+          target.status = PlayerStatus.DEAD;
+          eliminated = targetId;
+        }
+      }
+    }
+
+    collection.clear();
+    return { eliminated, tally };
+  }
+
   checkWinConditions(players: Player[]): WinCheckResult {
     const alive = players.filter((p) => p.status === PlayerStatus.ALIVE);
     const aliveMafia = alive.filter((p) => p.role?.team === RoleTeam.MAFIA);

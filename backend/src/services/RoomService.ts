@@ -1,4 +1,4 @@
-import { RoomStatus, PlayerStatus, GAME_CONSTANTS, ROOM_CONSTANTS } from '@mafia/shared';
+import { RoomStatus, PlayerStatus, GAME_CONSTANTS, ROOM_CONSTANTS, RoleName } from '@mafia/shared';
 import type { RoomStateDto } from '@mafia/shared';
 import { RoomRepository } from '../repositories/RoomRepository';
 import type { RoomRecord, PlayerRecord } from '../repositories/RoomRepository';
@@ -22,7 +22,14 @@ export interface LeaveRoomResult {
 export class RoomService {
   constructor(private readonly roomRepo: RoomRepository) {}
 
-  createRoom(username: string, maxPlayers?: number): CreateRoomResult {
+  /** HTTP path — generates a new playerId internally. */
+  createRoom(username: string, maxPlayers?: number, roleNames?: RoleName[]): CreateRoomResult {
+    const playerId = generateId();
+    return this.createRoomForPlayer(playerId, username, maxPlayers, roleNames);
+  }
+
+  /** WS path — uses a pre-authenticated playerId. */
+  createRoomForPlayer(playerId: string, username: string, maxPlayers?: number, roleNames?: RoleName[]): CreateRoomResult {
     const resolvedMax = maxPlayers ?? GAME_CONSTANTS.MAX_PLAYERS;
 
     if (resolvedMax < GAME_CONSTANTS.MIN_PLAYERS || resolvedMax > GAME_CONSTANTS.MAX_PLAYERS) {
@@ -35,7 +42,6 @@ export class RoomService {
       throw new Error('Server room limit reached');
     }
 
-    const playerId = generateId();
     const host: PlayerRecord = {
       id: playerId,
       username,
@@ -51,6 +57,7 @@ export class RoomService {
       players: [host],
       maxPlayers: resolvedMax,
       createdAt: new Date().toISOString(),
+      roleNames,
     };
 
     this.roomRepo.save(room);
@@ -59,7 +66,14 @@ export class RoomService {
     return { room: this.roomRepo.toDto(room), playerId };
   }
 
+  /** HTTP path — generates a new playerId internally. */
   joinRoom(code: string, username: string): JoinRoomResult {
+    const playerId = generateId();
+    return this.joinRoomAsPlayer(playerId, code, username);
+  }
+
+  /** WS path — uses a pre-authenticated playerId. */
+  joinRoomAsPlayer(playerId: string, code: string, username: string): JoinRoomResult {
     const room = this.roomRepo.findByCode(code.toUpperCase());
     if (!room) throw new Error(`Room with code "${code}" not found`);
     if (room.status !== RoomStatus.WAITING) throw new Error('Room is not accepting players');
@@ -70,7 +84,6 @@ export class RoomService {
     );
     if (duplicate) throw new Error(`Username "${username}" is already taken in this room`);
 
-    const playerId = generateId();
     const player: PlayerRecord = {
       id: playerId,
       username,

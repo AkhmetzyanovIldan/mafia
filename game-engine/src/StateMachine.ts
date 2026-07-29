@@ -17,11 +17,11 @@ import { GamePhase } from '@mafia/shared';
 const TRANSITIONS: ReadonlyMap<GamePhase, ReadonlySet<GamePhase>> = new Map([
   [GamePhase.WAITING,        new Set([GamePhase.PREPARING])],
   [GamePhase.PREPARING,      new Set([GamePhase.NIGHT])],
-  [GamePhase.NIGHT,          new Set([GamePhase.MORNING])],
+  [GamePhase.NIGHT,          new Set([GamePhase.MORNING, GamePhase.GAME_OVER])],
   [GamePhase.MORNING,        new Set([GamePhase.DAY_SPEECH])],
   [GamePhase.DAY_SPEECH,     new Set([GamePhase.DAY_DISCUSSION])],
   [GamePhase.DAY_DISCUSSION, new Set([GamePhase.VOTING])],
-  [GamePhase.VOTING,         new Set([GamePhase.LAST_WORD, GamePhase.CHECK_VICTORY])],
+  [GamePhase.VOTING,         new Set([GamePhase.LAST_WORD, GamePhase.CHECK_VICTORY, GamePhase.GAME_OVER])],
   [GamePhase.LAST_WORD,      new Set([GamePhase.CHECK_VICTORY])],
   [GamePhase.CHECK_VICTORY,  new Set([GamePhase.NIGHT, GamePhase.GAME_OVER])],
   [GamePhase.GAME_OVER,      new Set()],

@@ -1,14 +1,7 @@
-import { v4 as uuidv4 } from 'uuid';
+export { generateRoomCode } from '@mafia/game-engine';
 
-export { uuidv4 as generateId };
-
-export function generateRoomCode(length = 6): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < length; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return code;
+export function generateId(): string {
+  return crypto.randomUUID();
 }
 
 export function assertDefined<T>(value: T | undefined | null, label: string): T {

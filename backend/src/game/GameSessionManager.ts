@@ -1,24 +1,24 @@
 import { GameEngine, Room, Player } from '@mafia/game-engine';
 import type { GameStateDto, GameSnapshotDto, IPlayerAction } from '@mafia/shared';
-import { GAME_CONSTANTS, ActionType, GamePhase } from '@mafia/shared';
+import { GAME_CONSTANTS, ActionType, GamePhase, GAME_EVENTS, RoomStatus } from '@mafia/shared';
 import type { RoomRepository } from '../repositories/RoomRepository';
+import type { ConnectionManager } from '../websocket/ConnectionManager';
+import { PhaseTimerManager } from './PhaseTimerManager';
 
 export interface StartGameResult {
   gameState: GameStateDto;
   snapshot: GameSnapshotDto;
 }
 
-export type PhaseChangedCallback = (roomId: string, gameState: GameStateDto, snapshot: GameSnapshotDto) => void;
-
 export class GameSessionManager {
   private engines = new Map<string, GameEngine>();
-  private onPhaseChanged: PhaseChangedCallback | null = null;
+  private timers = new Map<string, PhaseTimerManager>();
+  private connections: ConnectionManager | null = null;
 
   constructor(private readonly roomRepo: RoomRepository) {}
 
-  /** Register a callback invoked after every phase transition. */
-  setPhaseChangedCallback(cb: PhaseChangedCallback): void {
-    this.onPhaseChanged = cb;
+  setConnectionManager(cm: ConnectionManager): void {
+    this.connections = cm;
   }
 
   startGame(roomId: string, requestingPlayerId: string): StartGameResult {
@@ -44,6 +44,7 @@ export class GameSessionManager {
       phaseDurationMs: GAME_CONSTANTS.DEFAULT_PHASE_DURATION_MS,
       votingDurationMs: GAME_CONSTANTS.DEFAULT_VOTING_DURATION_MS,
       nightDurationMs: GAME_CONSTANTS.DEFAULT_NIGHT_DURATION_MS,
+      roleNames: roomData.roleNames,
     });
 
     roomData.players.forEach((p) => {
@@ -51,16 +52,64 @@ export class GameSessionManager {
     });
 
     const engine = new GameEngine(room);
+    const phaseTimerManager = new PhaseTimerManager(engine, room);
 
-    // Subscribe to phase transitions before start() so PREPARING is captured
     engine.events.on('phaseChanged', () => {
-      if (this.onPhaseChanged) {
-        this.onPhaseChanged(roomId, engine.getStateDto(), engine.exportSnapshot());
+      const gameState = engine.getStateDto();
+      const snapshot = engine.exportSnapshot();
+      this.broadcastToRoom(roomId, {
+        event: GAME_EVENTS.GAME_STATE,
+        gameState,
+        snapshot,
+      });
+    });
+
+    engine.events.on('nightResolved', () => {
+      const gameState = engine.getStateDto();
+      const snapshot = engine.exportSnapshot();
+      this.broadcastToRoom(roomId, {
+        event: GAME_EVENTS.GAME_STATE,
+        gameState,
+        snapshot,
+      });
+    });
+
+    engine.events.on('votingResolved', () => {
+      const gameState = engine.getStateDto();
+      const snapshot = engine.exportSnapshot();
+      this.broadcastToRoom(roomId, {
+        event: GAME_EVENTS.GAME_STATE,
+        gameState,
+        snapshot,
+      });
+    });
+
+    engine.events.on('gameOver', ({ winner }) => {
+      const gameState = engine.getStateDto();
+      const snapshot = engine.exportSnapshot();
+      this.broadcastToRoom(roomId, {
+        event: GAME_EVENTS.GAME_STATE,
+        gameState,
+        snapshot,
+      });
+      console.log(`[GameSessionManager] Game over in room ${roomId} — winner: ${winner}`);
+      // Update room status to FINISHED
+      const rd = this.roomRepo.findById(roomId);
+      if (rd) {
+        rd.status = RoomStatus.FINISHED;
+        this.roomRepo.save(rd);
       }
+      this.cleanupGame(roomId);
     });
 
     engine.start();
+
+    // Mark room as IN_PROGRESS
+    roomData.status = RoomStatus.IN_PROGRESS;
+    this.roomRepo.save(roomData);
+
     this.engines.set(roomId, engine);
+    this.timers.set(roomId, phaseTimerManager);
     console.log(`[GameSessionManager] Game started for room ${roomId}`);
 
     return { gameState: engine.getStateDto(), snapshot: engine.exportSnapshot() };
@@ -80,28 +129,57 @@ export class GameSessionManager {
   }
 
   endGame(roomId: string): void {
-    this.engines.delete(roomId);
+    const engine = this.engines.get(roomId);
+    if (engine) {
+      const gameState = engine.getStateDto();
+      const snapshot = engine.exportSnapshot();
+      this.broadcastToRoom(roomId, {
+        event: GAME_EVENTS.GAME_STATE,
+        gameState,
+        snapshot,
+      });
+    }
+    // Update room status to FINISHED
+    const roomData = this.roomRepo.findById(roomId);
+    if (roomData) {
+      roomData.status = RoomStatus.FINISHED;
+      this.roomRepo.save(roomData);
+    }
+    this.cleanupGame(roomId);
     console.log(`[GameSessionManager] Game ended for room ${roomId}`);
   }
 
   submitPlayerAction(roomId: string, action: IPlayerAction): void {
     const engine = this.getEngine(roomId);
-    
-    // Enforce vote blocking if player is blocked and action is a vote
+
     if (action.type === ActionType.VOTE) {
-      const gameState = engine.getStateDto();
-      const player = gameState.players.find((p) => p.id === action.playerId);
-      
-      if (player?.blockedFromVoting) {
-        throw new Error('Player is blocked from voting and cannot submit a vote');
-      }
+      engine.submitVote(action.playerId, action.targetId);
+      this.tryAutoCompleteVoting(roomId, engine);
+      return;
     }
 
-    // Forward action to engine for processing
     if (engine.currentPhase() === GamePhase.NIGHT) {
       engine.submitNightAction(action);
     }
-    // Additional phase-specific handling can be added here
+  }
+
+  private tryAutoCompleteVoting(roomId: string, engine: GameEngine): void {
+    const eligible = engine.getEligibleVoters();
+    if (eligible.length > 0 && engine.voteCount() >= eligible.length) {
+      console.log(`[GameSessionManager] All eligible players voted in room ${roomId} — resolving voting`);
+      engine.completeVoting();
+    }
+  }
+
+  private cleanupGame(roomId: string): void {
+    this.timers.get(roomId)?.stop();
+    this.timers.delete(roomId);
+    this.engines.delete(roomId);
+    this.connections?.clearDisconnectedByRoom(roomId);
+  }
+
+  private broadcastToRoom(roomId: string, payload: import('@mafia/shared').RoomServerToClientEvent): void {
+    this.connections?.broadcast(roomId, payload);
   }
 
   private getEngine(roomId: string): GameEngine {

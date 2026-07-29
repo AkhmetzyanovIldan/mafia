@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { ROOM_EVENTS, GAME_EVENTS } from '@mafia/shared';
+import type { RoleName } from '@mafia/shared';
 import type {
   RoomStateDto,
   GameStateDto,
@@ -12,6 +13,7 @@ import type {
   WsRoomErrorPayload,
   WsGameStartedPayload,
   WsGameStatePayload,
+  WsPhaseChangedPayload,
   WsGameErrorPayload,
 } from '@mafia/shared';
 import { wsService } from '../services/WebSocketService';
@@ -26,7 +28,7 @@ export interface RoomStoreState {
   loading: boolean;
 }
 
-export function useRoomStore() {
+export function useRoomStore(token: string | null) {
   const [state, setState] = useState<RoomStoreState>({
     room: null,
     playerId: null,
@@ -93,6 +95,10 @@ export function useRoomStore() {
       setState((prev) => ({ ...prev, gameState: payload.gameState, error: null }));
     };
 
+    const onPhaseChanged = (payload: WsPhaseChangedPayload) => {
+      setState((prev) => ({ ...prev, gameState: payload.gameState, error: null }));
+    };
+
     const onGameError = (payload: WsGameErrorPayload) => {
       setState((prev) => ({ ...prev, error: payload.message, loading: false }));
     };
@@ -106,7 +112,7 @@ export function useRoomStore() {
     wsService.on(ROOM_EVENTS.ERROR, onRoomError);
     wsService.on(GAME_EVENTS.GAME_STARTED, onGameStarted);
     wsService.on(GAME_EVENTS.GAME_STATE, onGameState);
-    wsService.on(GAME_EVENTS.PHASE_CHANGED, onGameState);
+    wsService.on(GAME_EVENTS.PHASE_CHANGED, onPhaseChanged);
     wsService.on(GAME_EVENTS.GAME_ERROR, onGameError);
 
     return () => {
@@ -119,33 +125,35 @@ export function useRoomStore() {
       wsService.off(ROOM_EVENTS.ERROR, onRoomError);
       wsService.off(GAME_EVENTS.GAME_STARTED, onGameStarted);
       wsService.off(GAME_EVENTS.GAME_STATE, onGameState);
-      wsService.off(GAME_EVENTS.PHASE_CHANGED, onGameState);
+      wsService.off(GAME_EVENTS.PHASE_CHANGED, onPhaseChanged);
       wsService.off(GAME_EVENTS.GAME_ERROR, onGameError);
     };
   }, []);
 
-  const createRoom = useCallback((username: string, maxPlayers?: number) => {
+  const createRoom = useCallback((username: string, maxPlayers?: number, roleNames?: RoleName[]) => {
+    if (!token) return;
     setState((prev) => ({ ...prev, loading: true, error: null }));
-    wsService.send({ event: ROOM_EVENTS.CREATE_ROOM, username, maxPlayers });
-  }, []);
+    wsService.send({ event: ROOM_EVENTS.CREATE_ROOM, token, username, maxPlayers, roleNames });
+  }, [token]);
 
   const joinRoom = useCallback((code: string, username: string) => {
+    if (!token) return;
     setState((prev) => ({ ...prev, loading: true, error: null }));
-    wsService.send({ event: ROOM_EVENTS.JOIN_ROOM, code, username });
-  }, []);
+    wsService.send({ event: ROOM_EVENTS.JOIN_ROOM, token, code, username });
+  }, [token]);
 
   const leaveRoom = useCallback(() => {
-    const { room, playerId } = stateRef.current;
-    if (!room || !playerId) return;
-    wsService.send({ event: ROOM_EVENTS.LEAVE_ROOM, roomId: room.id, playerId });
+    const { room } = stateRef.current;
+    if (!room) return;
+    wsService.send({ event: ROOM_EVENTS.LEAVE_ROOM, roomId: room.id });
     setState({ room: null, playerId: null, gameState: null, error: null, loading: false });
   }, []);
 
   const startGame = useCallback(() => {
-    const { room, playerId } = stateRef.current;
-    if (!room || !playerId) return;
+    const { room } = stateRef.current;
+    if (!room) return;
     setState((prev) => ({ ...prev, loading: true, error: null }));
-    wsService.send({ event: GAME_EVENTS.START_GAME, roomId: room.id, playerId });
+    wsService.send({ event: GAME_EVENTS.START_GAME, roomId: room.id });
   }, []);
 
   const clearError = useCallback(() => {

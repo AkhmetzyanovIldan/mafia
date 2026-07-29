@@ -9,6 +9,12 @@ export class PhaseTimer {
     this.durationMs = durationMs;
   }
 
+  /** Stop the current timer and set a new duration. */
+  reset(durationMs: number): void {
+    this.stop();
+    this.durationMs = durationMs;
+  }
+
   start(onExpire: TimerCallback): void {
     this.stop();
     this.startedAt = Date.now();

@@ -1,4 +1,4 @@
-import { RoomStatus, PlayerStatus } from '@mafia/shared';
+import { RoomStatus, PlayerStatus, RoleName } from '@mafia/shared';
 import type { RoomStateDto, PlayerDto } from '@mafia/shared';
 
 export interface RoomRecord {
@@ -9,6 +9,7 @@ export interface RoomRecord {
   players: PlayerRecord[];
   maxPlayers: number;
   createdAt: string;
+  roleNames?: RoleName[];
 }
 
 export interface PlayerRecord {

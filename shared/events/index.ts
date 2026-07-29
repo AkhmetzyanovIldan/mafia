@@ -1,86 +1,21 @@
-import { IGameState, IRoom, IPlayerAction, RoomStateDto, PlayerDto } from '../interfaces';
-import { WinCondition, GamePhase } from '../enums';
-import { WS_EVENTS, ROOM_EVENTS, GAME_EVENTS } from '../constants';
+import type { IPlayerAction, RoomStateDto, PlayerDto } from '../interfaces';
+import { GamePhase, RoleName } from '../enums';
+import { ROOM_EVENTS, GAME_EVENTS } from '../constants';
 import type { GameStateDto, GameSnapshotDto } from '../dto';
-
-// Client -> Server (legacy game events)
-
-export interface JoinRoomPayload {
-  event: typeof WS_EVENTS.JOIN_ROOM;
-  roomId: string;
-  playerId: string;
-  token: string;
-}
-
-export interface LeaveRoomPayload {
-  event: typeof WS_EVENTS.LEAVE_ROOM;
-  roomId: string;
-  playerId: string;
-}
-
-export interface PlayerActionPayload {
-  event: typeof WS_EVENTS.PLAYER_ACTION;
-  action: IPlayerAction;
-}
-
-export interface ReadyPayload {
-  event: typeof WS_EVENTS.READY;
-  playerId: string;
-  roomId: string;
-}
-
-// Server -> Client (legacy game events)
-
-export interface RoomStatePayload {
-  event: typeof WS_EVENTS.ROOM_STATE;
-  room: IRoom;
-}
-
-export interface LegacyGameStatePayload {
-  event: typeof WS_EVENTS.GAME_STATE;
-  state: IGameState;
-}
-
-export interface PhaseChangedPayload {
-  event: typeof WS_EVENTS.PHASE_CHANGED;
-  state: IGameState;
-}
-
-export interface GameOverPayload {
-  event: typeof WS_EVENTS.GAME_OVER;
-  winner: WinCondition;
-  state: IGameState;
-}
-
-export interface WsErrorPayload {
-  event: typeof WS_EVENTS.ERROR;
-  message: string;
-  code: string;
-}
-
-export type ClientToServerEvent =
-  | JoinRoomPayload
-  | LeaveRoomPayload
-  | PlayerActionPayload
-  | ReadyPayload;
-
-export type ServerToClientEvent =
-  | RoomStatePayload
-  | LegacyGameStatePayload
-  | PhaseChangedPayload
-  | GameOverPayload
-  | WsErrorPayload;
 
 // Client -> Server (Room Management module)
 
 export interface WsCreateRoomPayload {
   event: typeof ROOM_EVENTS.CREATE_ROOM;
+  token: string;
   username: string;
   maxPlayers?: number;
+  roleNames?: RoleName[];
 }
 
 export interface WsJoinRoomPayload {
   event: typeof ROOM_EVENTS.JOIN_ROOM;
+  token: string;
   code: string;
   username: string;
 }
@@ -88,13 +23,17 @@ export interface WsJoinRoomPayload {
 export interface WsLeaveRoomPayload {
   event: typeof ROOM_EVENTS.LEAVE_ROOM;
   roomId: string;
-  playerId: string;
 }
 
 export interface WsRoomStateRequestPayload {
   event: typeof ROOM_EVENTS.ROOM_STATE_REQUEST;
   roomId: string;
-  playerId: string;
+}
+
+export interface WsReconnectPayload {
+  event: typeof ROOM_EVENTS.RECONNECT;
+  token: string;
+  roomId: string;
 }
 
 // Server -> Client (Room Management module)
@@ -133,6 +72,12 @@ export interface WsRoomRemovedPayload {
   roomId: string;
 }
 
+export interface WsReconnectedPayload {
+  event: typeof ROOM_EVENTS.RECONNECTED;
+  gameState: GameStateDto;
+  snapshot: GameSnapshotDto;
+}
+
 export interface WsRoomErrorPayload {
   event: typeof ROOM_EVENTS.ERROR;
   message: string;
@@ -144,6 +89,7 @@ export type RoomClientToServerEvent =
   | WsJoinRoomPayload
   | WsLeaveRoomPayload
   | WsRoomStateRequestPayload
+  | WsReconnectPayload
   | WsStartGamePayload
   | WsPlayerActionPayload;
 
@@ -155,6 +101,7 @@ export type RoomServerToClientEvent =
   | WsPlayerLeftPayload
   | WsRoomRemovedPayload
   | WsRoomErrorPayload
+  | WsReconnectedPayload
   | WsGameStartedPayload
   | WsGameStatePayload
   | WsPhaseChangedPayload
@@ -165,7 +112,6 @@ export type RoomServerToClientEvent =
 export interface WsStartGamePayload {
   event: typeof GAME_EVENTS.START_GAME;
   roomId: string;
-  playerId: string;
 }
 
 export interface WsPlayerActionPayload {

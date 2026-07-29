@@ -13,5 +13,10 @@
     "dev:backend": "npm run dev -w backend",
     "dev:frontend": "npm run dev -w frontend",
     "clean": "npm run clean -w shared && npm run clean -w game-engine && npm run clean -w backend && npm run clean -w frontend"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.57.1"
   }
 }

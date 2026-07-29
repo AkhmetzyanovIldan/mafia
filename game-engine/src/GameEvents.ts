@@ -1,15 +1,11 @@
 import { GamePhase, WinCondition } from '@mafia/shared';
-import type { IPlayerAction } from '@mafia/shared';
-import type { GameState } from './GameState';
-import type { NightResolution } from './RuleEngine';
+import type { NightResolution, VotingResolution } from './RuleEngine';
 
 export type GameEventMap = {
   phaseChanged: { previous: GamePhase; current: GamePhase };
   nightResolved: NightResolution;
-  playerEliminated: { playerId: string; state: GameState };
-  actionSubmitted: { action: IPlayerAction; state: GameState };
-  gameOver: { winner: WinCondition; state: GameState };
-  roundStarted: { round: number; state: GameState };
+  votingResolved: VotingResolution;
+  gameOver: { winner: WinCondition };
 };
 
 export type GameEventName = keyof GameEventMap;

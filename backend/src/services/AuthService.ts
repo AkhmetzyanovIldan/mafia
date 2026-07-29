@@ -17,13 +17,25 @@ export class AuthService {
 
   /** Verify a token and return its payload. */
   verifyToken(token: string): TokenPayload {
-    // TODO: verify JWT signature
-    const json = Buffer.from(token, 'base64').toString('utf-8');
-    return JSON.parse(json) as TokenPayload;
+    try {
+      const json = Buffer.from(token, 'base64').toString('utf-8');
+      const parsed = JSON.parse(json) as unknown;
+      if (
+        typeof parsed !== 'object' ||
+        parsed === null ||
+        typeof (parsed as Record<string, unknown>)['playerId'] !== 'string' ||
+        !(parsed as Record<string, unknown>)['playerId']
+      ) {
+        throw new Error('Invalid token payload');
+      }
+      return parsed as TokenPayload;
+    } catch {
+      throw new Error('Invalid or malformed token');
+    }
   }
 
   /** Create a guest player identity. */
-  createGuestIdentity(username: string): { playerId: string; token: string } {
+  createGuestIdentity(_username: string): { playerId: string; token: string } {
     const playerId = generateId();
     const token = this.issueToken(playerId);
     return { playerId, token };

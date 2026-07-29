@@ -1,4 +1,4 @@
-import { GamePhase, WinCondition } from '@mafia/shared';
+import { GamePhase } from '@mafia/shared';
 
 /**
  * GameFlowController is the sole authority over phase progression.

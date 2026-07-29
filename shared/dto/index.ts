@@ -1,5 +1,5 @@
-import { IRoomSettings, IPlayer, IGameState, RoomStateDto, IGameSession } from '../interfaces';
-import { GameSessionStatus, GamePhase } from '../enums';
+import type { IPlayer, IRoomSettings, RoomStateDto, GamePlayerDto } from '../interfaces';
+import { GameSessionStatus, GamePhase, WinCondition } from '../enums';
 
 // Room DTOs (HTTP layer)
 
@@ -63,29 +63,13 @@ export interface GameStateDto {
   roomId: string;
   status: GameSessionStatus;
   currentPhase: GamePhase;
-  players: Array<{
-    id: string;
-    username: string;
-    isHost: boolean;
-    blockedFromVoting?: boolean;
-  }>;
+  players: GamePlayerDto[];
   createdAt: string;
   startedAt: string;
+  winner?: WinCondition | null;
 }
 
-export interface GameSnapshotDto {
-  gameId: string;
-  roomId: string;
-  status: GameSessionStatus;
-  currentPhase: GamePhase;
-  players: Array<{
-    id: string;
-    username: string;
-    isHost: boolean;
-    blockedFromVoting?: boolean;
-  }>;
-  createdAt: string;
-  startedAt: string;
+export interface GameSnapshotDto extends GameStateDto {
   snapshotAt: string;
 }
 
@@ -98,16 +82,6 @@ export interface StartGameResponse {
   gameState: GameStateDto;
 }
 
-// Legacy Game DTOs
-
-export interface GameStateResponseDto {
-  state: IGameState;
-}
-
-export interface StartGameDto {
-  roomId: string;
-}
-
 // Auth DTOs
 
 export interface AuthResponseDto {
@@ -115,21 +89,11 @@ export interface AuthResponseDto {
   token: string;
 }
 
-// Type guard helpers
+// Legacy Game DTOs
 
-export function toGameStateDto(session: IGameSession): GameStateDto {
-  return {
-    gameId: session.gameId,
-    roomId: session.roomId,
-    status: session.status,
-    currentPhase: session.currentPhase,
-    players: session.players.map((p) => ({
-      id: p.id,
-      username: p.username,
-      isHost: p.isHost,
-      blockedFromVoting: p.blockedFromVoting,
-    })),
-    createdAt: session.createdAt,
-    startedAt: session.startedAt,
-  };
+export interface StartGameDto {
+  roomId: string;
 }
+
+// Re-export GamePlayerDto so consumers can import from dto or interfaces
+export type { GamePlayerDto } from '../interfaces';

@@ -4,7 +4,7 @@ import { config } from './config';
 import { createRoomRouter, createAuthRouter } from './routes';
 import { RoomController, AuthController } from './controllers';
 import { AuthService, RoomService } from './services';
-import { RoomRepository, PlayerRepository } from './repositories';
+import { RoomRepository } from './repositories';
 import { GameSessionManager } from './game';
 
 export function createApp() {
@@ -14,7 +14,6 @@ export function createApp() {
   app.use(express.json());
 
   const roomRepo = new RoomRepository();
-  const playerRepo = new PlayerRepository();
 
   const authService = new AuthService();
   const roomService = new RoomService(roomRepo);
@@ -24,11 +23,8 @@ export function createApp() {
   const roomController = new RoomController(roomService);
 
   app.use('/api/auth', createAuthRouter(authController));
-  app.use('/api/rooms', createRoomRouter(roomController));
+  app.use('/api/rooms', createRoomRouter(roomController, authService));
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
-
-  // playerRepo kept for future player session management
-  void playerRepo;
 
   return { app, authService, roomService, gameSessionManager };
 }

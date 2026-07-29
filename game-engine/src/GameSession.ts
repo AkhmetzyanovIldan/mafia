@@ -1,6 +1,7 @@
-import { GameSessionStatus, GamePhase, PlayerStatus } from '@mafia/shared';
-import type { IGameSession, GameSessionPlayerDto } from '@mafia/shared';
+import { GameSessionStatus, GamePhase } from '@mafia/shared';
+import type { IGameSession, GamePlayerDto } from '@mafia/shared';
 import type { GameSnapshotDto, GameStateDto } from '@mafia/shared';
+import type { WinCondition } from '@mafia/shared';
 import type { Player } from './Player';
 import { uuid } from './utils';
 
@@ -9,11 +10,12 @@ export class GameSession implements IGameSession {
   readonly roomId: string;
   status: GameSessionStatus;
   currentPhase: GamePhase;
-  players: GameSessionPlayerDto[];
+  players: GamePlayerDto[];
   readonly createdAt: string;
   startedAt: string;
+  winner: WinCondition | null = null;
 
-  constructor(roomId: string, players: GameSessionPlayerDto[]) {
+  constructor(roomId: string, players: GamePlayerDto[]) {
     this.gameId = uuid();
     this.roomId = roomId;
     this.status = GameSessionStatus.WAITING;
@@ -31,11 +33,9 @@ export class GameSession implements IGameSession {
     this.startedAt = new Date().toISOString();
   }
 
-  finish(): void {
-    if (this.status !== GameSessionStatus.IN_PROGRESS) {
-      throw new Error(`Cannot finish game: current status is ${this.status}`);
-    }
+  finish(winner: WinCondition | null = null): void {
     this.status = GameSessionStatus.FINISHED;
+    this.winner = winner;
   }
 
   toDto(): GameStateDto {
@@ -49,10 +49,12 @@ export class GameSession implements IGameSession {
         username: p.username,
         isHost: p.isHost,
         status: p.status,
-        blockedFromVoting: (p as any).blockedFromVoting || false,
+        blockedFromVoting: p.blockedFromVoting ?? false,
+        role: p.role,
       })),
       createdAt: this.createdAt,
       startedAt: this.startedAt,
+      winner: this.winner,
     };
   }
 
@@ -64,28 +66,43 @@ export class GameSession implements IGameSession {
   }
 
   syncPlayerStatuses(players: Player[]): void {
-    const statusMap = new Map(players.map((player) => [player.id, player.status]));
-    const blockMap = new Map(players.map((player) => [player.id, (player as Player).blockedFromVoting]));
-    this.players = this.players.map((player) => ({
-      ...player,
-      status: statusMap.get(player.id) ?? player.status,
-      blockedFromVoting: blockMap.get(player.id) ?? (player as any).blockedFromVoting ?? false,
+    const playerMap = new Map(players.map((p) => [p.id, p]));
+    this.players = this.players.map((p) => {
+      const live = playerMap.get(p.id);
+      if (!live) return p;
+      return {
+        ...p,
+        status: live.status,
+        blockedFromVoting: live.blockedFromVoting ?? false,
+      };
+    });
+  }
+
+  syncPlayerRoles(players: Player[]): void {
+    const roleMap = new Map(players.map((p) => [p.id, p.role?.toSnapshot()]));
+    this.players = this.players.map((p) => ({
+      ...p,
+      role: roleMap.get(p.id),
     }));
   }
 
+  /** Restore a full session from a snapshot — preserves all player state. */
   static fromSnapshot(snapshot: GameSnapshotDto): GameSession {
-    const players: GameSessionPlayerDto[] = snapshot.players.map((p) => ({
-      id: p.id,
-      username: p.username,
-      isHost: p.isHost,
-      status: PlayerStatus.ALIVE,
-    }));
-    const session = new GameSession(snapshot.roomId, players);
+    const session = new GameSession(snapshot.roomId, []);
+    // Override readonly gameId via cast — only used for restore
     (session as { gameId: string }).gameId = snapshot.gameId;
     (session as { createdAt: string }).createdAt = snapshot.createdAt;
     session.status = snapshot.status;
     session.currentPhase = snapshot.currentPhase;
     session.startedAt = snapshot.startedAt;
+    session.players = snapshot.players.map((p) => ({
+      id: p.id,
+      username: p.username,
+      isHost: p.isHost,
+      status: p.status,
+      blockedFromVoting: p.blockedFromVoting ?? false,
+      role: p.role,
+    }));
     return session;
   }
 }

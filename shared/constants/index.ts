@@ -11,28 +11,13 @@ export const ROOM_CONSTANTS = {
   MAX_ROOMS: 100,
 } as const;
 
-export const WS_EVENTS = {
-  // Client -> Server
-  JOIN_ROOM: 'join_room',
-  LEAVE_ROOM: 'leave_room',
-  PLAYER_ACTION: 'player_action',
-  READY: 'ready',
-  // Server -> Client
-  ROOM_STATE: 'room_state',
-  GAME_STATE: 'game_state',
-  PHASE_CHANGED: 'phase_changed',
-  PLAYER_JOINED: 'player_joined',
-  PLAYER_LEFT: 'player_left',
-  GAME_OVER: 'game_over',
-  ERROR: 'error',
-} as const;
-
 export const ROOM_EVENTS = {
   // Client -> Server
   CREATE_ROOM: 'create_room',
   JOIN_ROOM: 'join_room',
   LEAVE_ROOM: 'leave_room',
   ROOM_STATE_REQUEST: 'room_state_request',
+  RECONNECT: 'reconnect',
   // Server -> Client
   ROOM_CREATED: 'room_created',
   ROOM_UPDATED: 'room_updated',
@@ -40,6 +25,7 @@ export const ROOM_EVENTS = {
   PLAYER_JOINED: 'player_joined',
   PLAYER_LEFT: 'player_left',
   ROOM_REMOVED: 'room_removed',
+  RECONNECTED: 'reconnected',
   ERROR: 'error',
 } as const;
 
