@@ -97,6 +97,26 @@ export function validateWsMessage(raw: unknown): ValidationResult | ValidationEr
       return { ok: true, event };
     }
 
+    case ROOM_EVENTS.TAKE_SEAT: {
+      if (!isNonEmptyString(msg['roomId'], MAX_ROOM_ID)) {
+        return { ok: false, message: 'roomId is required' };
+      }
+      if (typeof msg['seat'] !== 'number' || !Number.isInteger(msg['seat']) || msg['seat'] < 1) {
+        return { ok: false, message: 'seat must be a positive integer' };
+      }
+      return { ok: true, event };
+    }
+
+    case ROOM_EVENTS.PLAYER_READY: {
+      if (!isNonEmptyString(msg['roomId'], MAX_ROOM_ID)) {
+        return { ok: false, message: 'roomId is required' };
+      }
+      if (typeof msg['isReady'] !== 'boolean') {
+        return { ok: false, message: 'isReady must be a boolean' };
+      }
+      return { ok: true, event };
+    }
+
     case GAME_EVENTS.START_GAME: {
       if (!isNonEmptyString(msg['roomId'], MAX_ROOM_ID)) {
         return { ok: false, message: 'roomId is required' };

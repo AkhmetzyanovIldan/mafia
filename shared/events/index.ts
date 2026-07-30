@@ -30,6 +30,18 @@ export interface WsRoomStateRequestPayload {
   roomId: string;
 }
 
+export interface WsTakeSeatPayload {
+  event: typeof ROOM_EVENTS.TAKE_SEAT;
+  roomId: string;
+  seat: number;
+}
+
+export interface WsPlayerReadyPayload {
+  event: typeof ROOM_EVENTS.PLAYER_READY;
+  roomId: string;
+  isReady: boolean;
+}
+
 export interface WsReconnectPayload {
   event: typeof ROOM_EVENTS.RECONNECT;
   token: string;
@@ -90,6 +102,8 @@ export type RoomClientToServerEvent =
   | WsLeaveRoomPayload
   | WsRoomStateRequestPayload
   | WsReconnectPayload
+  | WsTakeSeatPayload
+  | WsPlayerReadyPayload
   | WsStartGamePayload
   | WsPlayerActionPayload;
 

@@ -3,16 +3,27 @@ import type { RoomClientToServerEvent, RoomServerToClientEvent } from '@mafia/sh
 type EventHandler<T extends RoomServerToClientEvent> = (payload: T) => void;
 type AnyHandler = EventHandler<RoomServerToClientEvent>;
 
+const RECONNECT_DELAY_MS = 2000;
+
 export class WebSocketService {
   private socket: WebSocket | null = null;
   private handlers = new Map<string, AnyHandler[]>();
+  private url: string | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private onReconnectCallback: (() => void) | null = null;
 
   connect(url: string): void {
     if (this.socket?.readyState === WebSocket.OPEN) return;
+    this.url = url;
     this.socket = new WebSocket(url);
 
     this.socket.onopen = () => {
       console.log('[WS] Connected to', url);
+      if (this.reconnectTimer !== null) {
+        clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+      }
+      this.onReconnectCallback?.();
     };
 
     this.socket.onmessage = (event) => {
@@ -30,11 +41,24 @@ export class WebSocketService {
     };
 
     this.socket.onclose = () => {
-      console.log('[WS] Disconnected');
+      console.log('[WS] Disconnected — reconnecting in', RECONNECT_DELAY_MS, 'ms');
+      this.socket = null;
+      if (this.url) {
+        this.reconnectTimer = setTimeout(() => this.connect(this.url!), RECONNECT_DELAY_MS);
+      }
     };
   }
 
+  setOnReconnect(cb: () => void): void {
+    this.onReconnectCallback = cb;
+  }
+
   disconnect(): void {
+    this.url = null;
+    if (this.reconnectTimer !== null) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     this.socket?.close();
     this.socket = null;
   }

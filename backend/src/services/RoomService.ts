@@ -47,6 +47,8 @@ export class RoomService {
       username,
       isHost: true,
       status: PlayerStatus.ALIVE,
+      seat: null,
+      isReady: false,
     };
 
     const room: RoomRecord = {
@@ -89,6 +91,8 @@ export class RoomService {
       username,
       isHost: false,
       status: PlayerStatus.ALIVE,
+      seat: null,
+      isReady: false,
     };
 
     room.players.push(player);
@@ -96,6 +100,50 @@ export class RoomService {
     console.log(`[RoomService] Player "${username}" (${playerId}) joined room ${room.code}`);
 
     return { room: this.roomRepo.toDto(room), playerId };
+  }
+
+  takeSeat(roomId: string, playerId: string, seat: number): RoomStateDto {
+    const room = this.roomRepo.findById(roomId);
+    if (!room) throw new Error(`Room ${roomId} not found`);
+    if (room.status !== RoomStatus.WAITING) throw new Error('Cannot take seat after game started');
+
+    if (seat < 1 || seat > room.maxPlayers) {
+      throw new Error(`Seat ${seat} is out of range (1–${room.maxPlayers})`);
+    }
+
+    const takenBy = room.players.find((p) => p.seat === seat && p.id !== playerId);
+    if (takenBy) throw new Error(`Seat ${seat} is already taken`);
+
+    const player = room.players.find((p) => p.id === playerId);
+    if (!player) throw new Error(`Player ${playerId} not found in room`);
+
+    player.seat = seat;
+    player.isReady = false; // сброс готовности при смене места
+    this.roomRepo.save(room);
+    console.log(`[RoomService] Player "${player.username}" took seat ${seat} in room ${room.code}`);
+    return this.roomRepo.toDto(room);
+  }
+
+  setReady(roomId: string, playerId: string, isReady: boolean): RoomStateDto {
+    const room = this.roomRepo.findById(roomId);
+    if (!room) throw new Error(`Room ${roomId} not found`);
+    if (room.status !== RoomStatus.WAITING) throw new Error('Cannot change ready state after game started');
+
+    const player = room.players.find((p) => p.id === playerId);
+    if (!player) throw new Error(`Player ${playerId} not found in room`);
+    if (player.seat === null) throw new Error('Player must take a seat before marking ready');
+
+    player.isReady = isReady;
+    this.roomRepo.save(room);
+    console.log(`[RoomService] Player "${player.username}" is ${isReady ? 'ready' : 'not ready'} in room ${room.code}`);
+    return this.roomRepo.toDto(room);
+  }
+
+  allSeatedPlayersReady(roomId: string): boolean {
+    const room = this.roomRepo.findById(roomId);
+    if (!room) return false;
+    const seated = room.players.filter((p) => p.seat !== null);
+    return seated.length >= GAME_CONSTANTS.MIN_PLAYERS && seated.every((p) => p.isReady);
   }
 
   leaveRoom(roomId: string, playerId: string): LeaveRoomResult {

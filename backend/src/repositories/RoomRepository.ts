@@ -17,6 +17,8 @@ export interface PlayerRecord {
   username: string;
   isHost: boolean;
   status: PlayerStatus;
+  seat: number | null;
+  isReady: boolean;
 }
 
 export class RoomRepository {
@@ -60,6 +62,8 @@ export class RoomRepository {
         username: p.username,
         isHost: p.isHost,
         status: p.status,
+        seat: p.seat,
+        isReady: p.isReady,
       })),
       maxPlayers: room.maxPlayers,
       createdAt: room.createdAt,

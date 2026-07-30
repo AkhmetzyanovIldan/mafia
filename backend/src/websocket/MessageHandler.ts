@@ -68,6 +68,12 @@ export class MessageHandler {
       case ROOM_EVENTS.LEAVE_ROOM:
         this.handleLeaveRoom(socket, playerId, message.roomId);
         break;
+      case ROOM_EVENTS.TAKE_SEAT:
+        this.handleTakeSeat(socket, playerId, message.roomId, message.seat);
+        break;
+      case ROOM_EVENTS.PLAYER_READY:
+        this.handlePlayerReady(socket, playerId, message.roomId, message.isReady);
+        break;
       case ROOM_EVENTS.ROOM_STATE_REQUEST:
         this.handleRoomStateRequest(socket, playerId, message.roomId);
         break;
@@ -278,6 +284,42 @@ export class MessageHandler {
       this.performLeave(roomId, playerId);
     } catch (err) {
       this.sendError(socket, ROOM_EVENTS.ERROR, toMessage(err), 'LEAVE_ROOM_ERROR');
+    }
+  }
+
+  private handleTakeSeat(socket: WebSocket, playerId: string, roomId: string, seat: number): void {
+    if (!roomId || seat === undefined) {
+      this.sendError(socket, ROOM_EVENTS.ERROR, 'roomId and seat are required', 'VALIDATION_ERROR');
+      return;
+    }
+    const playerRoomId = this.connections.getRoomIdByPlayer(playerId);
+    if (playerRoomId !== roomId) {
+      this.sendError(socket, ROOM_EVENTS.ERROR, 'Access denied', 'ACCESS_DENIED');
+      return;
+    }
+    try {
+      const room = this.roomService.takeSeat(roomId, playerId, seat);
+      this.connections.broadcast(roomId, { event: ROOM_EVENTS.ROOM_UPDATED, room });
+    } catch (err) {
+      this.sendError(socket, ROOM_EVENTS.ERROR, toMessage(err), 'TAKE_SEAT_ERROR');
+    }
+  }
+
+  private handlePlayerReady(socket: WebSocket, playerId: string, roomId: string, isReady: boolean): void {
+    if (!roomId || isReady === undefined) {
+      this.sendError(socket, ROOM_EVENTS.ERROR, 'roomId and isReady are required', 'VALIDATION_ERROR');
+      return;
+    }
+    const playerRoomId = this.connections.getRoomIdByPlayer(playerId);
+    if (playerRoomId !== roomId) {
+      this.sendError(socket, ROOM_EVENTS.ERROR, 'Access denied', 'ACCESS_DENIED');
+      return;
+    }
+    try {
+      const room = this.roomService.setReady(roomId, playerId, isReady);
+      this.connections.broadcast(roomId, { event: ROOM_EVENTS.ROOM_UPDATED, room });
+    } catch (err) {
+      this.sendError(socket, ROOM_EVENTS.ERROR, toMessage(err), 'READY_ERROR');
     }
   }
 

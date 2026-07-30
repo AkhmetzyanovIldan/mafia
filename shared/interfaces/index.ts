@@ -70,6 +70,8 @@ export interface PlayerDto {
   username: string;
   isHost: boolean;
   status: PlayerStatus;
+  seat: number | null;
+  isReady: boolean;
 }
 
 export interface RoomStateDto {

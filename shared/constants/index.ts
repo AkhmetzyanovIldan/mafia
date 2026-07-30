@@ -18,6 +18,8 @@ export const ROOM_EVENTS = {
   LEAVE_ROOM: 'leave_room',
   ROOM_STATE_REQUEST: 'room_state_request',
   RECONNECT: 'reconnect',
+  TAKE_SEAT: 'take_seat',
+  PLAYER_READY: 'player_ready',
   // Server -> Client
   ROOM_CREATED: 'room_created',
   ROOM_UPDATED: 'room_updated',

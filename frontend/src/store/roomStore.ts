@@ -15,6 +15,7 @@ import type {
   WsGameStatePayload,
   WsPhaseChangedPayload,
   WsGameErrorPayload,
+  WsReconnectedPayload,
 } from '@mafia/shared';
 import { wsService } from '../services/WebSocketService';
 
@@ -42,8 +43,14 @@ export function useRoomStore(token: string | null) {
 
   useEffect(() => {
     wsService.connect(WS_URL);
+    wsService.setOnReconnect(() => {
+      const { room, gameState } = stateRef.current;
+      if (gameState && room && token) {
+        wsService.send({ event: ROOM_EVENTS.RECONNECT, token, roomId: room.id });
+      }
+    });
     return () => wsService.disconnect();
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     const onRoomCreated = (payload: WsRoomCreatedPayload) => {
@@ -87,6 +94,10 @@ export function useRoomStore(token: string | null) {
       setState((prev) => ({ ...prev, error: payload.message, loading: false }));
     };
 
+    const onReconnected = (payload: WsReconnectedPayload) => {
+      setState((prev) => ({ ...prev, gameState: payload.gameState, error: null, loading: false }));
+    };
+
     const onGameStarted = (payload: WsGameStartedPayload) => {
       setState((prev) => ({ ...prev, gameState: payload.gameState, error: null, loading: false }));
     };
@@ -109,6 +120,7 @@ export function useRoomStore(token: string | null) {
     wsService.on(ROOM_EVENTS.PLAYER_JOINED, onPlayerJoined);
     wsService.on(ROOM_EVENTS.PLAYER_LEFT, onPlayerLeft);
     wsService.on(ROOM_EVENTS.ROOM_REMOVED, onRoomRemoved);
+    wsService.on(ROOM_EVENTS.RECONNECTED, onReconnected);
     wsService.on(ROOM_EVENTS.ERROR, onRoomError);
     wsService.on(GAME_EVENTS.GAME_STARTED, onGameStarted);
     wsService.on(GAME_EVENTS.GAME_STATE, onGameState);
@@ -122,6 +134,7 @@ export function useRoomStore(token: string | null) {
       wsService.off(ROOM_EVENTS.PLAYER_JOINED, onPlayerJoined);
       wsService.off(ROOM_EVENTS.PLAYER_LEFT, onPlayerLeft);
       wsService.off(ROOM_EVENTS.ROOM_REMOVED, onRoomRemoved);
+      wsService.off(ROOM_EVENTS.RECONNECTED, onReconnected);
       wsService.off(ROOM_EVENTS.ERROR, onRoomError);
       wsService.off(GAME_EVENTS.GAME_STARTED, onGameStarted);
       wsService.off(GAME_EVENTS.GAME_STATE, onGameState);
@@ -149,6 +162,18 @@ export function useRoomStore(token: string | null) {
     setState({ room: null, playerId: null, gameState: null, error: null, loading: false });
   }, []);
 
+  const takeSeat = useCallback((seat: number) => {
+    const { room } = stateRef.current;
+    if (!room || !token) return;
+    wsService.send({ event: ROOM_EVENTS.TAKE_SEAT, roomId: room.id, seat });
+  }, [token]);
+
+  const setReady = useCallback((isReady: boolean) => {
+    const { room } = stateRef.current;
+    if (!room || !token) return;
+    wsService.send({ event: ROOM_EVENTS.PLAYER_READY, roomId: room.id, isReady });
+  }, [token]);
+
   const startGame = useCallback(() => {
     const { room } = stateRef.current;
     if (!room) return;
@@ -160,5 +185,5 @@ export function useRoomStore(token: string | null) {
     setState((prev) => ({ ...prev, error: null }));
   }, []);
 
-  return { ...state, createRoom, joinRoom, leaveRoom, startGame, clearError };
+  return { ...state, createRoom, joinRoom, leaveRoom, takeSeat, setReady, startGame, clearError };
 }

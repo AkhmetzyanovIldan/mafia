@@ -8,12 +8,16 @@ import { GameSessionStatus, GamePhase } from '@mafia/shared';
 type View = 'home' | 'create' | 'join';
 
 export function MainScreen() {
-  const { token, loginAsGuest } = useAuthStore();
+  const { token } = useAuthStore();
   const { room, playerId, gameState, error, loading, createRoom, joinRoom, leaveRoom, startGame, clearError } =
     useRoomStore(token);
 
   if (!token) {
-    return <GuestLoginView onLogin={loginAsGuest} />;
+    return (
+      <div className="screen">
+        <p style={{ textAlign: 'center', marginTop: '2rem' }}>Загрузка…</p>
+      </div>
+    );
   }
 
   if (gameState) {
@@ -44,49 +48,6 @@ export function MainScreen() {
       )}
       <HomeView loading={loading} onCreateRoom={createRoom} onJoinRoom={joinRoom} />
     </div>
-  );
-}
-
-// Guest login
-
-interface GuestLoginViewProps {
-  onLogin: (username: string) => Promise<void>;
-}
-
-function GuestLoginView({ onLogin }: GuestLoginViewProps) {
-  const [username, setUsername] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!username.trim()) return;
-    setLoading(true);
-    try {
-      await onLogin(username.trim());
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <form className="form" onSubmit={handleSubmit}>
-      <h2>Enter your name</h2>
-      <label>
-        Username
-        <input
-          type="text"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          placeholder="Enter your name"
-          maxLength={32}
-          required
-          autoFocus
-        />
-      </label>
-      <button type="submit" className="btn btn-primary" disabled={loading || !username.trim()}>
-        {loading ? 'Loading…' : 'Continue'}
-      </button>
-    </form>
   );
 }
 
