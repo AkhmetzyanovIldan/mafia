@@ -34,6 +34,11 @@ export class PhaseTimerManager {
     this.timer.stop();
   }
 
+  /** Returns ISO timestamp when the current phase ends, or null if no timer is running. */
+  getEndsAt(): string | null {
+    return this.timer.getEndsAt();
+  }
+
   // ── private ──────────────────────────────────────────────────────────────
 
   private onPhaseChanged(phase: GamePhase): void {
@@ -52,14 +57,16 @@ export class PhaseTimerManager {
     switch (phase) {
       case GamePhase.NIGHT:          return this.settings.nightDurationMs;
       case GamePhase.VOTING:         return this.settings.votingDurationMs;
+      case GamePhase.RUNOFF_VOTING:  return this.settings.votingDurationMs;
       case GamePhase.MORNING:
       case GamePhase.DAY_SPEECH:
       case GamePhase.DAY_DISCUSSION:
       case GamePhase.LAST_WORD:      return this.settings.phaseDurationMs;
-      case GamePhase.CHECK_VICTORY:  return 0; // immediate
+      case GamePhase.CHECK_VICTORY:  return 0;
       case GamePhase.PREPARING:
       case GamePhase.WAITING:
-      case GamePhase.GAME_OVER:      return null;
+      case GamePhase.GAME_OVER:
+      default:                       return null;
     }
   }
 

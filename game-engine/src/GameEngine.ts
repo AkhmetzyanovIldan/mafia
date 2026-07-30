@@ -41,6 +41,7 @@ export class GameEngine {
   private readonly votes: VoteCollection;
   private readonly ruleEngine: RuleEngine;
   private nightNumber = 0;
+  private runoffCandidates: string[] | null = null;
   private readonly players: Player[];
   private readonly room: Room;
   readonly events: GameEventBus;
@@ -175,10 +176,21 @@ export class GameEngine {
   }
 
   submitVote(voterId: string, targetId: string): void {
-    if (this.stateMachine.currentState() !== GamePhase.VOTING) {
+    const current = this.stateMachine.currentState();
+    if (current !== GamePhase.VOTING && current !== GamePhase.RUNOFF_VOTING) {
       throw new Error(
-        `Votes can only be submitted during VOTING phase. Current: ${this.stateMachine.currentState()}`,
+        `Votes can only be submitted during VOTING/RUNOFF_VOTING phase. Current: ${current}`,
       );
+    }
+
+    // During runoff, only candidates can be voted for; candidates themselves cannot vote
+    if (current === GamePhase.RUNOFF_VOTING && this.runoffCandidates) {
+      if (this.runoffCandidates.includes(voterId)) {
+        throw new Error(`Player ${voterId} is a runoff candidate and cannot vote`);
+      }
+      if (!this.runoffCandidates.includes(targetId)) {
+        throw new Error(`Player ${targetId} is not a runoff candidate`);
+      }
     }
 
     if (voterId === targetId) {
@@ -199,21 +211,33 @@ export class GameEngine {
   }
 
   completeVoting(): VotingResolution {
-    if (this.stateMachine.currentState() !== GamePhase.VOTING) {
-      throw new Error(`completeVoting() called outside VOTING phase. Current: ${this.stateMachine.currentState()}`);
+    const current = this.stateMachine.currentState();
+    if (current !== GamePhase.VOTING && current !== GamePhase.RUNOFF_VOTING) {
+      throw new Error(`completeVoting() called outside VOTING/RUNOFF_VOTING phase. Current: ${current}`);
     }
-    const resolution = this.ruleEngine.resolveVoting(this.votes, this.players);
+    const isRunoff = current === GamePhase.RUNOFF_VOTING;
+    const resolution = this.ruleEngine.resolveVoting(this.votes, this.players, this.runoffCandidates);
     this.session.syncPlayerStatuses(this.players);
     this.events.emit('votingResolved', resolution);
-    console.log(`[GameEngine] Voting resolved — eliminated: ${resolution.eliminated ?? 'none'}`);
+    console.log(`[GameEngine] Voting resolved — eliminated: ${resolution.eliminated ?? 'none'}, tied: ${resolution.tied}`);
 
-    // Check win immediately after elimination
     const winCheck = this.ruleEngine.checkWinConditions(this.players);
     if (winCheck.isOver) {
+      this.runoffCandidates = null;
       this.flowController.advance(GamePhase.GAME_OVER);
-    } else {
-      const next = resolution.eliminated !== null ? GamePhase.LAST_WORD : GamePhase.CHECK_VICTORY;
+    } else if (resolution.eliminated !== null) {
+      // Single winner — last word if enabled, else check victory
+      this.runoffCandidates = null;
+      const next = this.room.settings.lastWordEnabled ? GamePhase.LAST_WORD : GamePhase.CHECK_VICTORY;
       this.flowController.advance(next);
+    } else if (!isRunoff && resolution.tied && resolution.tiedCandidates.length > 1) {
+      // First tie — go to runoff
+      this.runoffCandidates = resolution.tiedCandidates;
+      this.flowController.advance(GamePhase.RUNOFF_VOTING);
+    } else {
+      // Second tie or no votes — nobody eliminated
+      this.runoffCandidates = null;
+      this.flowController.advance(GamePhase.CHECK_VICTORY);
     }
 
     return resolution;
@@ -230,7 +254,12 @@ export class GameEngine {
 
   /** Returns alive players eligible to vote — reads directly from live Player objects. */
   getEligibleVoters(): Player[] {
-    return this.players.filter((p) => p.isAlive() && !p.blockedFromVoting);
+    const isRunoff = this.stateMachine.currentState() === GamePhase.RUNOFF_VOTING;
+    return this.players.filter((p) => {
+      if (!p.isAlive() || p.blockedFromVoting) return false;
+      if (isRunoff && this.runoffCandidates?.includes(p.id)) return false;
+      return true;
+    });
   }
 
   voteCount(): number {

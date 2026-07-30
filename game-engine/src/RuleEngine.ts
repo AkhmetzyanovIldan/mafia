@@ -17,6 +17,8 @@ export interface NightResolution {
 export interface VotingResolution {
   eliminated: string | null;
   tally: Map<string, number>;
+  tied: boolean;
+  tiedCandidates: string[];
 }
 
 export interface WinCheckResult {
@@ -223,14 +225,18 @@ export class RuleEngine {
     };
   }
 
-  resolveVoting(collection: VoteCollection, players: Player[]): VotingResolution {
+  resolveVoting(collection: VoteCollection, players: Player[], candidates?: string[] | null): VotingResolution {
     const tally = new Map<string, number>();
 
     for (const targetId of collection.getAll().values()) {
+      // In runoff, only count votes for candidates
+      if (candidates && !candidates.includes(targetId)) continue;
       tally.set(targetId, (tally.get(targetId) ?? 0) + 1);
     }
 
     let eliminated: string | null = null;
+    let tied = false;
+    let tiedCandidates: string[] = [];
 
     if (tally.size > 0) {
       const maxVotes = Math.max(...tally.values());
@@ -243,11 +249,14 @@ export class RuleEngine {
           target.status = PlayerStatus.DEAD;
           eliminated = targetId;
         }
+      } else {
+        tied = true;
+        tiedCandidates = leaders.map(([id]) => id);
       }
     }
 
     collection.clear();
-    return { eliminated, tally };
+    return { eliminated, tally, tied, tiedCandidates };
   }
 
   checkWinConditions(players: Player[]): WinCheckResult {

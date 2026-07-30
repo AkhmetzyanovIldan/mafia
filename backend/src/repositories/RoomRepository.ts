@@ -10,6 +10,10 @@ export interface RoomRecord {
   maxPlayers: number;
   createdAt: string;
   roleNames?: RoleName[];
+  phaseDurationMs?: number;
+  votingDurationMs?: number;
+  nightDurationMs?: number;
+  lastWordEnabled: boolean;
 }
 
 export interface PlayerRecord {

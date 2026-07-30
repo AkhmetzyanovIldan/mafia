@@ -1,1 +1,1 @@
-export {};
+export { useVoiceActivity } from './useVoiceActivity';

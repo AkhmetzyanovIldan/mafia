@@ -3,16 +3,17 @@ import { GamePhase } from '@mafia/shared';
 /**
  * Allowed transitions: key → set of valid next states.
  *
- * WAITING      → PREPARING
- * PREPARING    → NIGHT
- * NIGHT        → MORNING
- * MORNING      → DAY_SPEECH
- * DAY_SPEECH   → DAY_DISCUSSION
+ * WAITING        → PREPARING
+ * PREPARING      → NIGHT
+ * NIGHT          → MORNING
+ * MORNING        → DAY_SPEECH
+ * DAY_SPEECH     → DAY_DISCUSSION
  * DAY_DISCUSSION → VOTING
- * VOTING       → LAST_WORD | CHECK_VICTORY
- * LAST_WORD    → CHECK_VICTORY
- * CHECK_VICTORY → NIGHT | GAME_OVER
- * GAME_OVER    → (terminal — no transitions)
+ * VOTING         → LAST_WORD | RUNOFF_VOTING | CHECK_VICTORY
+ * RUNOFF_VOTING  → LAST_WORD | CHECK_VICTORY
+ * LAST_WORD      → CHECK_VICTORY
+ * CHECK_VICTORY  → NIGHT | GAME_OVER
+ * GAME_OVER      → (terminal)
  */
 const TRANSITIONS: ReadonlyMap<GamePhase, ReadonlySet<GamePhase>> = new Map([
   [GamePhase.WAITING,        new Set([GamePhase.PREPARING])],
@@ -21,7 +22,8 @@ const TRANSITIONS: ReadonlyMap<GamePhase, ReadonlySet<GamePhase>> = new Map([
   [GamePhase.MORNING,        new Set([GamePhase.DAY_SPEECH])],
   [GamePhase.DAY_SPEECH,     new Set([GamePhase.DAY_DISCUSSION])],
   [GamePhase.DAY_DISCUSSION, new Set([GamePhase.VOTING])],
-  [GamePhase.VOTING,         new Set([GamePhase.LAST_WORD, GamePhase.CHECK_VICTORY, GamePhase.GAME_OVER])],
+  [GamePhase.VOTING,         new Set([GamePhase.LAST_WORD, GamePhase.RUNOFF_VOTING, GamePhase.CHECK_VICTORY, GamePhase.GAME_OVER])],
+  [GamePhase.RUNOFF_VOTING,  new Set([GamePhase.LAST_WORD, GamePhase.CHECK_VICTORY, GamePhase.GAME_OVER])],
   [GamePhase.LAST_WORD,      new Set([GamePhase.CHECK_VICTORY])],
   [GamePhase.CHECK_VICTORY,  new Set([GamePhase.NIGHT, GamePhase.GAME_OVER])],
   [GamePhase.GAME_OVER,      new Set()],

@@ -60,7 +60,11 @@ export class MessageHandler {
 
     switch (message.event) {
       case ROOM_EVENTS.CREATE_ROOM:
-        this.handleCreateRoom(socket, playerId, message.username, message.maxPlayers, message.roleNames);
+        this.handleCreateRoom(
+          socket, playerId, message.username, message.maxPlayers, message.roleNames,
+          message.phaseDurationMs, message.votingDurationMs, message.nightDurationMs,
+          message.lastWordEnabled,
+        );
         break;
       case ROOM_EVENTS.JOIN_ROOM:
         this.handleJoinRoom(socket, playerId, message.code, message.username);
@@ -70,6 +74,9 @@ export class MessageHandler {
         break;
       case ROOM_EVENTS.TAKE_SEAT:
         this.handleTakeSeat(socket, playerId, message.roomId, message.seat);
+        break;
+      case ROOM_EVENTS.LEAVE_SEAT:
+        this.handleLeaveSeat(socket, playerId, message.roomId);
         break;
       case ROOM_EVENTS.PLAYER_READY:
         this.handlePlayerReady(socket, playerId, message.roomId, message.isReady);
@@ -83,6 +90,12 @@ export class MessageHandler {
         break;
       case GAME_EVENTS.START_GAME:
         this.handleStartGame(socket, playerId, message.roomId);
+        break;
+      case GAME_EVENTS.RESET_GAME:
+        this.handleResetGame(socket, playerId, message.roomId);
+        break;
+      case GAME_EVENTS.VOICE_ACTIVITY:
+        this.handleVoiceActivity(playerId, message.roomId, message.speaking);
         break;
       case GAME_EVENTS.PLAYER_ACTION:
         this.handlePlayerAction(socket, playerId, message.roomId, message.action);
@@ -158,7 +171,11 @@ export class MessageHandler {
         const username = msg['username'] as string;
         const maxPlayers = msg['maxPlayers'] as number | undefined;
         const roleNames = msg['roleNames'] as import('@mafia/shared').RoleName[] | undefined;
-        this.handleCreateRoom(socket, playerId, username, maxPlayers, roleNames);
+        const phaseDurationMs = msg['phaseDurationMs'] as number | undefined;
+        const votingDurationMs = msg['votingDurationMs'] as number | undefined;
+        const nightDurationMs = msg['nightDurationMs'] as number | undefined;
+        const lastWordEnabled = msg['lastWordEnabled'] as boolean | undefined;
+        this.handleCreateRoom(socket, playerId, username, maxPlayers, roleNames, phaseDurationMs, votingDurationMs, nightDurationMs, lastWordEnabled);
       } else {
         const code = msg['code'] as string;
         const username = msg['username'] as string;
@@ -223,13 +240,20 @@ export class MessageHandler {
     username: string,
     maxPlayers?: number,
     roleNames?: import('@mafia/shared').RoleName[],
+    phaseDurationMs?: number,
+    votingDurationMs?: number,
+    nightDurationMs?: number,
+    lastWordEnabled?: boolean,
   ): void {
     if (!username?.trim()) {
       this.sendError(socket, ROOM_EVENTS.ERROR, 'username is required', 'VALIDATION_ERROR');
       return;
     }
     try {
-      const { room } = this.roomService.createRoomForPlayer(playerId, username.trim(), maxPlayers, roleNames);
+      const { room } = this.roomService.createRoomForPlayer(
+        playerId, username.trim(), maxPlayers, roleNames,
+        phaseDurationMs, votingDurationMs, nightDurationMs, lastWordEnabled,
+      );
       this.connections.register(playerId, room.id, socket);
       socket.send(JSON.stringify({ event: ROOM_EVENTS.ROOM_CREATED, room, playerId }));
       console.log(`[MessageHandler] Room ${room.code} created for player ${playerId}`);
@@ -305,6 +329,24 @@ export class MessageHandler {
     }
   }
 
+  private handleLeaveSeat(socket: WebSocket, playerId: string, roomId: string): void {
+    if (!roomId) {
+      this.sendError(socket, ROOM_EVENTS.ERROR, 'roomId is required', 'VALIDATION_ERROR');
+      return;
+    }
+    const playerRoomId = this.connections.getRoomIdByPlayer(playerId);
+    if (playerRoomId !== roomId) {
+      this.sendError(socket, ROOM_EVENTS.ERROR, 'Access denied', 'ACCESS_DENIED');
+      return;
+    }
+    try {
+      const room = this.roomService.leaveSeat(roomId, playerId);
+      this.connections.broadcast(roomId, { event: ROOM_EVENTS.ROOM_UPDATED, room });
+    } catch (err) {
+      this.sendError(socket, ROOM_EVENTS.ERROR, toMessage(err), 'LEAVE_SEAT_ERROR');
+    }
+  }
+
   private handlePlayerReady(socket: WebSocket, playerId: string, roomId: string, isReady: boolean): void {
     if (!roomId || isReady === undefined) {
       this.sendError(socket, ROOM_EVENTS.ERROR, 'roomId and isReady are required', 'VALIDATION_ERROR');
@@ -318,6 +360,16 @@ export class MessageHandler {
     try {
       const room = this.roomService.setReady(roomId, playerId, isReady);
       this.connections.broadcast(roomId, { event: ROOM_EVENTS.ROOM_UPDATED, room });
+      // Auto-start when all seated players are ready
+      if (isReady && this.roomService.allSeatedPlayersReady(roomId) && !this.gameSessionManager.hasActiveGame(roomId)) {
+        try {
+          const { gameState, snapshot } = this.gameSessionManager.startGame(roomId, this.roomService.getRoom(roomId).hostId);
+          this.connections.broadcast(roomId, { event: GAME_EVENTS.GAME_STARTED, gameState, snapshot, phaseEndsAt: null });
+          console.log(`[MessageHandler] Auto-started game in room ${roomId}`);
+        } catch (startErr) {
+          console.error(`[MessageHandler] Auto-start failed: ${toMessage(startErr)}`);
+        }
+      }
     } catch (err) {
       this.sendError(socket, ROOM_EVENTS.ERROR, toMessage(err), 'READY_ERROR');
     }
@@ -339,6 +391,35 @@ export class MessageHandler {
       socket.send(JSON.stringify({ event: ROOM_EVENTS.ROOM_UPDATED, room }));
     } catch (err) {
       this.sendError(socket, ROOM_EVENTS.ERROR, toMessage(err), 'ROOM_STATE_ERROR');
+    }
+  }
+
+  private handleVoiceActivity(playerId: string, roomId: string, speaking: boolean): void {
+    const playerRoomId = this.connections.getRoomIdByPlayer(playerId);
+    if (playerRoomId !== roomId) return;
+    this.connections.broadcast(roomId, {
+      event: GAME_EVENTS.VOICE_ACTIVITY,
+      roomId,
+      playerId,
+      speaking,
+    });
+  }
+
+  private handleResetGame(socket: WebSocket, playerId: string, roomId: string): void {
+    if (!roomId) {
+      this.sendError(socket, GAME_EVENTS.GAME_ERROR, 'roomId is required', 'VALIDATION_ERROR');
+      return;
+    }
+    const playerRoomId = this.connections.getRoomIdByPlayer(playerId);
+    if (playerRoomId !== roomId) {
+      this.sendError(socket, GAME_EVENTS.GAME_ERROR, 'Access denied', 'ACCESS_DENIED');
+      return;
+    }
+    try {
+      this.gameSessionManager.resetGame(roomId, playerId);
+      console.log(`[MessageHandler] Game reset in room ${roomId} by ${playerId}`);
+    } catch (err) {
+      this.sendError(socket, GAME_EVENTS.GAME_ERROR, toMessage(err), 'RESET_GAME_ERROR');
     }
   }
 
@@ -411,7 +492,6 @@ export class MessageHandler {
       ...gameState,
       players: gameState.players.map((p) => {
         if (p.id === playerId) return p;
-        if (p.status === 'DEAD') return p;
         return { ...p, role: undefined };
       }),
     };

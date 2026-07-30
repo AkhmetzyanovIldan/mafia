@@ -407,6 +407,19 @@ body {
   font-size: 0.8rem;
 }
 
+.phase-timer {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #fff;
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 2px 10px;
+  min-width: 44px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 .table-error {
   margin: 8px 16px 0;
   border-radius: 8px;
@@ -542,6 +555,24 @@ body {
   letter-spacing: 0.05em;
 }
 
+.seat-leave-btn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: #ffffff44;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.seat-leave-btn:hover {
+  color: #ff6b6b;
+}
+
 /* Center Area */
 
 .center-area {
@@ -641,4 +672,297 @@ body {
 
 .btn-icon:hover {
   background: #2a2a3a;
+}
+
+/* ── Role Reveal Overlay ────────────────────────────────────────────────── */
+
+.role-reveal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+}
+
+.role-reveal-card {
+  background: #16161f;
+  border: 1px solid #333;
+  border-radius: 16px;
+  padding: 32px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-width: 260px;
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+}
+
+.role-reveal-title {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #ffffff55;
+}
+
+.role-reveal-name {
+  font-size: 1.8rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.role-mafia  { color: #ff6b6b; }
+.role-town   { color: #69db7c; }
+
+.role-reveal-hint {
+  font-size: 0.75rem;
+  color: #ffffff33;
+}
+
+/* ── Roles Section (CreateRoomForm) ─────────────────────────────────────── */
+
+.roles-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.roles-label {
+  font-size: 0.875rem;
+  color: #ffffffaa;
+}
+
+.roles-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.role-toggle {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid #333;
+  background: #1a1a1a;
+  color: #ffffffaa;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.role-toggle:hover {
+  border-color: #646cff;
+  color: #fff;
+}
+
+.role-toggle-on {
+  background: #1e1e3f;
+  border-color: #646cff;
+  color: #a0a8ff;
+}
+
+/* ── Action Panel (Night / Voting) ──────────────────────────────────────── */
+
+.action-panel {
+  align-items: stretch;
+  gap: 12px;
+}
+
+.action-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  text-align: center;
+}
+
+.target-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.target-btn {
+  width: 100%;
+  padding: 10px 14px;
+  background: #1a1a2a;
+  border: 1px solid #2a2a3a;
+  border-radius: 8px;
+  color: #ffffffcc;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.target-btn:hover {
+  background: #22223a;
+  border-color: #444;
+}
+
+.target-selected {
+  background: #1e1e3f;
+  border-color: #646cff;
+  color: #fff;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.action-buttons .btn {
+  flex: 1;
+}
+
+/* ── Morning Panel ──────────────────────────────────────────────────────── */
+
+.morning-panel {
+  gap: 10px;
+}
+
+.morning-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.death-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.death-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #1f0f0f;
+  border: 1px solid #3a1a1a;
+  border-radius: 8px;
+}
+
+.death-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #ff9999;
+}
+
+.death-role {
+  font-size: 0.75rem;
+  color: #ffffff55;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── Last Word Panel ────────────────────────────────────────────────────── */
+
+.last-word-panel {
+  gap: 10px;
+  border-color: #3a1a1a;
+  background: #110a0a;
+}
+
+.last-word-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #ef9a9a;
+}
+
+.last-word-speaker {
+  font-size: 0.9rem;
+  color: #ffffffaa;
+}
+
+/* ── Toast Notifications ────────────────────────────────────────────────── */
+
+.toast-container {
+  position: fixed;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  z-index: 200;
+  pointer-events: none;
+}
+
+.toast {
+  background: #1e1e2e;
+  border: 1px solid #3a3a5a;
+  border-radius: 20px;
+  padding: 8px 20px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #e0e0ff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+  cursor: pointer;
+  animation: toast-in 0.2s ease;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Timers Section (CreateRoomForm) ────────────────────────────────────── */
+
+.timers-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.timers-section label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.875rem;
+  color: #ffffffaa;
+}
+
+/* ── Last Word Toggle ───────────────────────────────────────────────────── */
+
+.last-word-toggle {
+  display: flex;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.875rem;
+  color: #ffffffaa;
+  cursor: pointer;
+}
+
+.last-word-toggle input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: #646cff;
+  cursor: pointer;
+}
+
+/* ── Runoff phase badge ─────────────────────────────────────────────────── */
+
+.phase-runoff_voting { background: #2b1a3a; color: #d8a8ff; }
+
+/* ── Voice Activity ─────────────────────────────────────────────────────── */
+
+.seat-speaking {
+  border-color: #4caf50 !important;
+  box-shadow: 0 0 0 2px #4caf5044;
+  animation: speaking-pulse 1s ease-in-out infinite;
+}
+
+@keyframes speaking-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px #4caf5044; }
+  50%       { box-shadow: 0 0 0 5px #4caf5022; }
 }

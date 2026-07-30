@@ -17,7 +17,7 @@ export function createApp() {
 
   const authService = new AuthService();
   const roomService = new RoomService(roomRepo);
-  const gameSessionManager = new GameSessionManager(roomRepo);
+  const gameSessionManager = new GameSessionManager(roomRepo, roomService);
 
   const authController = new AuthController(authService);
   const roomController = new RoomController(roomService);

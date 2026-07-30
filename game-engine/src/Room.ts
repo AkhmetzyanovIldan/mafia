@@ -8,6 +8,7 @@ const DEFAULT_SETTINGS: IRoomSettings = {
   phaseDurationMs: GAME_CONSTANTS.DEFAULT_PHASE_DURATION_MS,
   votingDurationMs: GAME_CONSTANTS.DEFAULT_VOTING_DURATION_MS,
   nightDurationMs: GAME_CONSTANTS.DEFAULT_NIGHT_DURATION_MS,
+  lastWordEnabled: true,
 };
 
 export class Room implements IRoom {

@@ -19,6 +19,7 @@ export const ROOM_EVENTS = {
   ROOM_STATE_REQUEST: 'room_state_request',
   RECONNECT: 'reconnect',
   TAKE_SEAT: 'take_seat',
+  LEAVE_SEAT: 'leave_seat',
   PLAYER_READY: 'player_ready',
   // Server -> Client
   ROOM_CREATED: 'room_created',
@@ -37,11 +38,14 @@ export const GAME_EVENTS = {
   // Client -> Server
   START_GAME: 'start_game',
   PLAYER_ACTION: 'player_action',
+  RESET_GAME: 'reset_game',
+  VOICE_ACTIVITY: 'voice_activity',
   // Server -> Client
   GAME_STARTED: 'game_started',
   GAME_STATE: 'game_state',
   PHASE_CHANGED: 'phase_changed',
   GAME_ERROR: 'game_error',
+  GAME_RESET: 'game_reset',
 } as const;
 
 export type GameEventName = typeof GAME_EVENTS[keyof typeof GAME_EVENTS];

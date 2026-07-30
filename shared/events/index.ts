@@ -11,6 +11,10 @@ export interface WsCreateRoomPayload {
   username: string;
   maxPlayers?: number;
   roleNames?: RoleName[];
+  phaseDurationMs?: number;
+  votingDurationMs?: number;
+  nightDurationMs?: number;
+  lastWordEnabled?: boolean;
 }
 
 export interface WsJoinRoomPayload {
@@ -34,6 +38,11 @@ export interface WsTakeSeatPayload {
   event: typeof ROOM_EVENTS.TAKE_SEAT;
   roomId: string;
   seat: number;
+}
+
+export interface WsLeaveSeatPayload {
+  event: typeof ROOM_EVENTS.LEAVE_SEAT;
+  roomId: string;
 }
 
 export interface WsPlayerReadyPayload {
@@ -103,9 +112,12 @@ export type RoomClientToServerEvent =
   | WsRoomStateRequestPayload
   | WsReconnectPayload
   | WsTakeSeatPayload
+  | WsLeaveSeatPayload
   | WsPlayerReadyPayload
   | WsStartGamePayload
-  | WsPlayerActionPayload;
+  | WsPlayerActionPayload
+  | WsResetGamePayload
+  | WsVoiceActivityPayload;
 
 export type RoomServerToClientEvent =
   | WsRoomCreatedPayload
@@ -119,7 +131,9 @@ export type RoomServerToClientEvent =
   | WsGameStartedPayload
   | WsGameStatePayload
   | WsPhaseChangedPayload
-  | WsGameErrorPayload;
+  | WsGameErrorPayload
+  | WsGameResetPayload
+  | WsVoiceActivityPayload;
 
 // Client -> Server (Game Session module)
 
@@ -134,18 +148,32 @@ export interface WsPlayerActionPayload {
   action: IPlayerAction;
 }
 
+export interface WsResetGamePayload {
+  event: typeof GAME_EVENTS.RESET_GAME;
+  roomId: string;
+}
+
+export interface WsVoiceActivityPayload {
+  event: typeof GAME_EVENTS.VOICE_ACTIVITY;
+  roomId: string;
+  playerId: string;
+  speaking: boolean;
+}
+
 // Server -> Client (Game Session module)
 
 export interface WsGameStartedPayload {
   event: typeof GAME_EVENTS.GAME_STARTED;
   gameState: GameStateDto;
   snapshot: GameSnapshotDto;
+  phaseEndsAt?: string | null;
 }
 
 export interface WsGameStatePayload {
   event: typeof GAME_EVENTS.GAME_STATE;
   gameState: GameStateDto;
   snapshot: GameSnapshotDto;
+  phaseEndsAt?: string | null;
 }
 
 export interface WsPhaseChangedPayload {
@@ -153,10 +181,16 @@ export interface WsPhaseChangedPayload {
   gameState: GameStateDto;
   previousPhase: GamePhase;
   currentPhase: GamePhase;
+  phaseEndsAt?: string | null;
 }
 
 export interface WsGameErrorPayload {
   event: typeof GAME_EVENTS.GAME_ERROR;
   message: string;
   code: string;
+}
+
+export interface WsGameResetPayload {
+  event: typeof GAME_EVENTS.GAME_RESET;
+  room: RoomStateDto;
 }

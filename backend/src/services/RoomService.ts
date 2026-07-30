@@ -29,7 +29,16 @@ export class RoomService {
   }
 
   /** WS path — uses a pre-authenticated playerId. */
-  createRoomForPlayer(playerId: string, username: string, maxPlayers?: number, roleNames?: RoleName[]): CreateRoomResult {
+  createRoomForPlayer(
+    playerId: string,
+    username: string,
+    maxPlayers?: number,
+    roleNames?: RoleName[],
+    phaseDurationMs?: number,
+    votingDurationMs?: number,
+    nightDurationMs?: number,
+    lastWordEnabled?: boolean,
+  ): CreateRoomResult {
     const resolvedMax = maxPlayers ?? GAME_CONSTANTS.MAX_PLAYERS;
 
     if (resolvedMax < GAME_CONSTANTS.MIN_PLAYERS || resolvedMax > GAME_CONSTANTS.MAX_PLAYERS) {
@@ -60,6 +69,10 @@ export class RoomService {
       maxPlayers: resolvedMax,
       createdAt: new Date().toISOString(),
       roleNames,
+      phaseDurationMs,
+      votingDurationMs,
+      nightDurationMs,
+      lastWordEnabled: lastWordEnabled ?? true,
     };
 
     this.roomRepo.save(room);
@@ -118,9 +131,24 @@ export class RoomService {
     if (!player) throw new Error(`Player ${playerId} not found in room`);
 
     player.seat = seat;
-    player.isReady = false; // сброс готовности при смене места
+    player.isReady = false;
     this.roomRepo.save(room);
     console.log(`[RoomService] Player "${player.username}" took seat ${seat} in room ${room.code}`);
+    return this.roomRepo.toDto(room);
+  }
+
+  leaveSeat(roomId: string, playerId: string): RoomStateDto {
+    const room = this.roomRepo.findById(roomId);
+    if (!room) throw new Error(`Room ${roomId} not found`);
+    if (room.status !== RoomStatus.WAITING) throw new Error('Cannot leave seat after game started');
+
+    const player = room.players.find((p) => p.id === playerId);
+    if (!player) throw new Error(`Player ${playerId} not found in room`);
+
+    player.seat = null;
+    player.isReady = false;
+    this.roomRepo.save(room);
+    console.log(`[RoomService] Player "${player.username}" left their seat in room ${room.code}`);
     return this.roomRepo.toDto(room);
   }
 
@@ -183,6 +211,19 @@ export class RoomService {
 
   listRooms(): RoomStateDto[] {
     return this.roomRepo.findAll().map((r) => this.roomRepo.toDto(r));
+  }
+
+  resetRoom(roomId: string): RoomStateDto {
+    const room = this.roomRepo.findById(roomId);
+    if (!room) throw new Error(`Room ${roomId} not found`);
+    room.status = RoomStatus.WAITING;
+    room.players.forEach((p) => {
+      p.isReady = false;
+      p.status = PlayerStatus.ALIVE;
+    });
+    this.roomRepo.save(room);
+    console.log(`[RoomService] Room ${room.code} reset for new game`);
+    return this.roomRepo.toDto(room);
   }
 
   private generateUniqueCode(): string {

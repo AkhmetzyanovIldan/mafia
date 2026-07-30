@@ -40,6 +40,7 @@ export interface IRoomSettings {
   votingDurationMs: number;
   nightDurationMs: number;
   roleNames?: RoleName[];
+  lastWordEnabled: boolean;
 }
 
 export interface IGameState {

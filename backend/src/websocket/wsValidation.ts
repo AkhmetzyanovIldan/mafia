@@ -107,6 +107,13 @@ export function validateWsMessage(raw: unknown): ValidationResult | ValidationEr
       return { ok: true, event };
     }
 
+    case ROOM_EVENTS.LEAVE_SEAT: {
+      if (!isNonEmptyString(msg['roomId'], MAX_ROOM_ID)) {
+        return { ok: false, message: 'roomId is required' };
+      }
+      return { ok: true, event };
+    }
+
     case ROOM_EVENTS.PLAYER_READY: {
       if (!isNonEmptyString(msg['roomId'], MAX_ROOM_ID)) {
         return { ok: false, message: 'roomId is required' };
@@ -120,6 +127,23 @@ export function validateWsMessage(raw: unknown): ValidationResult | ValidationEr
     case GAME_EVENTS.START_GAME: {
       if (!isNonEmptyString(msg['roomId'], MAX_ROOM_ID)) {
         return { ok: false, message: 'roomId is required' };
+      }
+      return { ok: true, event };
+    }
+
+    case GAME_EVENTS.RESET_GAME: {
+      if (!isNonEmptyString(msg['roomId'], MAX_ROOM_ID)) {
+        return { ok: false, message: 'roomId is required' };
+      }
+      return { ok: true, event };
+    }
+
+    case GAME_EVENTS.VOICE_ACTIVITY: {
+      if (!isNonEmptyString(msg['roomId'], MAX_ROOM_ID)) {
+        return { ok: false, message: 'roomId is required' };
+      }
+      if (typeof msg['speaking'] !== 'boolean') {
+        return { ok: false, message: 'speaking must be a boolean' };
       }
       return { ok: true, event };
     }
